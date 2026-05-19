@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title data-i18n="meta.title">Mr.Scratch</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;700&family=Heebo:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <!-- ==================== TOP BAR ==================== -->
+  <header class="topbar">
+    <div class="logo">
+      <span class="logo-mark">Mr.</span><span class="logo-mark accent">Scratch</span>
+    </div>
+    <button id="lang-toggle" class="lang-toggle" type="button" aria-label="Change language">
+      <span data-i18n="lang.toggle">עברית</span>
+    </button>
+  </header>
+
+  <main id="app">
+
+    <!-- ==================== HOME ==================== -->
+    <section class="screen active" id="screen-home">
+      <div class="card hero">
+
+        <h1 data-i18n="home.title">Mr.Scratch</h1>
+        <p class="tagline" data-i18n="home.tagline">Draw. Spot the impostor. Survive.</p>
+
+        <label class="field">
+          <span data-i18n="home.yourName">Your name</span>
+          <input id="home-name" type="text" maxlength="20" autocomplete="off" />
+        </label>
+
+        <div class="row" style="justify-content:center">
+          <button id="btn-create" class="primary cta" type="button">
+            <span style="margin-inline-end:6px">🎨</span>
+            <span data-i18n="home.create">Create Private Room</span>
+          </button>
+        </div>
+
+        <div class="divider" data-i18n="home.or">or</div>
+
+        <div class="join-row">
+          <input id="home-code" type="text" maxlength="4" autocomplete="off" />
+          <button id="btn-join" class="secondary" type="button">
+            <span style="margin-inline-end:5px">🚪</span>
+            <span data-i18n="home.join">Join Room</span>
+          </button>
+        </div>
+
+        <details class="rules">
+          <summary data-i18n="home.rulesTitle">📖 How to play</summary>
+          <ol>
+            <li data-i18n="home.rule1">3 to 5 players join a room. One is secretly the Impostor.</li>
+            <li data-i18n="home.rule2">Normal players see the secret word. The Impostor only sees the category.</li>
+            <li data-i18n="home.rule3">Everyone takes turns drawing on the shared canvas (3 turns each, max 10 seconds per turn). One mouse lift ends the turn.</li>
+            <li data-i18n="home.rule4">The Impostor sees the canvas the whole time and must bluff their drawings.</li>
+            <li data-i18n="home.rule5">After 3 rounds, everyone votes on who the Impostor is.</li>
+            <li data-i18n="home.rule6">Caught Impostor: each other player gets +1 point. Hidden Impostor: +3 points.</li>
+            <li data-i18n="home.rule7">The Impostor always gets one last chance to guess the word for +1 bonus point.</li>
+            <li data-i18n="home.rule8">First to 6 points wins the match.</li>
+          </ol>
+        </details>
+
+      </div>
+    </section>
+
+    <!-- ==================== LOBBY ==================== -->
+    <section class="screen" id="screen-lobby">
+      <div class="card">
+        <h2>🏠 <span data-i18n="lobby.title">Lobby</span></h2>
+
+        <div class="room-code-row">
+          <span class="muted small" data-i18n="lobby.roomCode">Room code</span>
+          <span id="lobby-code" class="room-code-pill">----</span>
+          <button id="btn-copy-link" class="ghost" type="button">
+            🔗 <span data-i18n="lobby.copyLink">Copy share link</span>
+          </button>
+        </div>
+
+        <h3>👥 <span data-i18n="lobby.players">Players</span></h3>
+        <ul id="lobby-players" class="players-list"></ul>
+
+        <div class="host-controls" id="host-controls" hidden>
+          <div class="row">
+            <button id="btn-add-bot" class="ghost" type="button">
+              🤖 <span data-i18n="lobby.addBot">+ Add Bot</span>
+            </button>
+          </div>
+
+          <label class="field">
+            <span>🎲 <span data-i18n="lobby.category">Category</span></span>
+            <select id="lobby-category">
+              <option value="random"        data-i18n="cat.random">Random</option>
+              <option value="food"          data-i18n="cat.food">Food 🍕</option>
+              <option value="animals"       data-i18n="cat.animals">Animals 🐾</option>
+              <option value="transportation"data-i18n="cat.transportation">Transportation 🚗</option>
+              <option value="clothing"      data-i18n="cat.clothing">Clothing 👕</option>
+              <option value="fitness"       data-i18n="cat.fitness">Fitness 💪</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span>🌐 <span data-i18n="lobby.roomLang">Room language</span></span>
+            <select id="lobby-lang">
+              <option value="en">English</option>
+              <option value="he">עברית</option>
+            </select>
+          </label>
+
+          <button id="btn-start" class="primary" type="button">
+            🚀 <span data-i18n="lobby.start">Start Game</span>
+          </button>
+          <p class="muted small" style="margin-top:8px" data-i18n="lobby.minPlayers">Need at least 3 players (humans + bots).</p>
+        </div>
+
+        <p id="waiting-for-host" class="muted" hidden data-i18n="lobby.waitingHost">Waiting for the host to start…</p>
+      </div>
+    </section>
+
+    <!-- ==================== GAME ==================== -->
+    <section class="screen" id="screen-game">
+      <div class="game-grid">
+
+        <aside class="sidebar">
+          <!-- Role box -->
+          <div class="card" style="padding:0;overflow:hidden">
+            <div class="role-box" id="role-box">
+              <div class="role-label" data-i18n="game.yourRole">Your role</div>
+              <div class="role-value" id="role-value">—</div>
+              <div class="word-row">
+                <div class="word-label" data-i18n="game.category">Category</div>
+                <div id="role-category" class="word-value">—</div>
+              </div>
+              <div class="word-row" id="word-row">
+                <div class="word-label" data-i18n="game.secretWord">Secret word</div>
+                <div id="role-word" class="word-value strong">—</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Turn indicator -->
+          <div class="card" style="padding:14px">
+            <div class="turn-indicator" id="turn-indicator" style="background:none;border:none;padding:0">
+              <div class="turn-line">
+                ⚔️ <span data-i18n="game.round">Round</span>
+                <span id="round-display" style="font-weight:700;color:var(--primary-light)">1</span>
+                / <span id="round-total">3</span>
+              </div>
+              <div class="turn-line strong" id="turn-name">—</div>
+              <div class="timer-bar" style="margin-top:10px"><div id="timer-fill"></div></div>
+            </div>
+          </div>
+
+          <!-- Scoreboard -->
+          <div class="card" style="padding:14px">
+            <div class="scoreboard">
+              <h4>🏆 <span data-i18n="game.scores">Scores</span></h4>
+              <ul id="scoreboard"></ul>
+            </div>
+          </div>
+        </aside>
+
+        <!-- Canvas -->
+        <div class="canvas-area card">
+          <div class="canvas-wrap">
+            <canvas id="board" width="800" height="600"></canvas>
+          </div>
+          <div class="palette" id="palette"></div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ==================== VOTE ==================== -->
+    <section class="screen" id="screen-vote">
+      <div class="card" style="max-width:680px;margin-inline:auto">
+        <h2>🎯 <span data-i18n="vote.title">Who's the Impostor?</span></h2>
+        <p class="muted" data-i18n="vote.subtitle">Pick the player you think doesn't know the word.</p>
+        <ul id="vote-list" class="vote-list"></ul>
+        <p class="muted small" id="vote-status" style="text-align:center"></p>
+      </div>
+    </section>
+
+    <!-- ==================== GUESS ==================== -->
+    <section class="screen" id="screen-guess">
+      <div class="card center">
+        <div style="font-size:2.8rem;margin-bottom:8px">🤔</div>
+        <h2 data-i18n="guess.title">Last chance!</h2>
+        <p style="color:var(--ink-soft)" data-i18n="guess.body">Impostor, type your guess for the secret word for a bonus point.</p>
+        <div id="guess-form" hidden>
+          <input id="guess-input" type="text" maxlength="40" style="margin-top:10px" />
+          <button id="btn-submit-guess" class="primary" type="button">
+            ✅ <span data-i18n="guess.submit">Submit</span>
+          </button>
+        </div>
+        <p id="guess-waiting" class="muted" data-i18n="guess.waiting">Waiting for the impostor to guess…</p>
+        <div class="timer-bar" style="max-width:280px;margin:14px auto 0"><div id="guess-timer-fill"></div></div>
+      </div>
+    </section>
+
+    <!-- ==================== RESULTS ==================== -->
+    <section class="screen" id="screen-results">
+      <div class="card" style="max-width:600px;margin-inline:auto">
+        <!-- Winner banner injected here by JS when match is over -->
+        <div id="winner-banner" hidden class="winner-banner"></div>
+
+        <h2 id="results-title" data-i18n="results.title">Round results</h2>
+
+        <div class="result-line">
+          <span>🕵️ <span data-i18n="results.impostorWas">The impostor was</span></span>
+          <strong id="result-impostor">—</strong>
+        </div>
+        <div class="result-line">
+          <span>💬 <span data-i18n="results.wordWas">The word was</span></span>
+          <strong id="result-word">—</strong>
+        </div>
+        <div class="result-line" id="result-guess-line">
+          <span>🎲 <span data-i18n="results.impostorGuess">Impostor guessed</span></span>
+          <strong id="result-guess">—</strong>
+        </div>
+
+        <h3 style="margin-top:20px">🏆 <span data-i18n="results.scores">Scores</span></h3>
+        <ul id="result-scores" class="players-list"></ul>
+
+        <div class="row" id="results-actions">
+          <button id="btn-next-round" class="primary" hidden>
+            ▶️ <span data-i18n="results.next">Next Round</span>
+          </button>
+          <button id="btn-new-match" class="primary" hidden>
+            🔄 <span data-i18n="results.newMatch">New Match</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="i18n.js"></script>
+  <script src="canvas.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
