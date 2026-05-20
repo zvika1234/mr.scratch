@@ -23,6 +23,17 @@ function emitRoom(room, event, payload) {
   io.to(room.code).emit(event, payload);
 }
 
+// Fisher–Yates shuffle (in-place, but we copy first). Used so the turn order
+// is randomized each impostor cycle — no one always draws first.
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
 function broadcastSnapshot(room) {
   emitRoom(room, 'room:update', publicSnapshot(room));
 }
@@ -47,9 +58,9 @@ function startGame(room) {
   room.votes = {};
   room.impostorGuess = null;
 
-  // Stable turn order: humans-then-bots. Each player draws once per round;
-  // total of 3 rounds (totalRounds=3) means each player draws 3 times.
-  room.turnOrder = everyone.map((p) => p.id);
+  // Randomized turn order: shuffle so no one always goes first across cycles.
+  // Each player draws once per round; 3 rounds (totalRounds=3) = 3 draws each.
+  room.turnOrder = shuffle(everyone.map((p) => p.id));
 
   room.state = 'drawing';
 
@@ -202,6 +213,17 @@ function castVote(room, voterId, targetId) {
   if (Object.keys(room.votes).length >= allParticipants(room).length) {
     resolveVotes(room);
   }
+}
+
+// Cast a random vote on behalf of a disconnected player so the room isn't
+// blocked waiting on them. Used by the server-side disconnect handler.
+function autoVoteFor(room, voterId) {
+  if (room.state !== 'voting') return;
+  if (voterId in room.votes) return;
+  const candidates = allParticipants(room).filter((p) => p.id !== voterId);
+  if (candidates.length === 0) return;
+  const target = candidates[Math.floor(Math.random() * candidates.length)].id;
+  castVote(room, voterId, target);
 }
 
 function resolveVotes(room) {
@@ -383,6 +405,7 @@ module.exports = {
   handleStroke,
   handleStrokeEnd,
   castVote,
+  autoVoteFor,
   submitImpostorGuess,
   nextRound,
   newMatch,

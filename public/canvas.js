@@ -42,6 +42,14 @@ const Board = (() => {
     enabled = on;
     canvas.classList.toggle('frozen', !on);
     palette.querySelectorAll('button').forEach((b) => (b.disabled = !on));
+    // Always reset drawing state when toggling — prevents stuck "drawing=true"
+    // from a previous turn causing phantom strokes on pointermove.
+    drawing = false;
+    currentPoints = [];
+    if (emitTimer) {
+      clearTimeout(emitTimer);
+      emitTimer = null;
+    }
   }
 
   function setHandlers(handlers) {
@@ -131,9 +139,11 @@ const Board = (() => {
   canvas.addEventListener('pointermove', onPointerMove);
   canvas.addEventListener('pointerup', onPointerUp);
   canvas.addEventListener('pointercancel', onPointerUp);
-  canvas.addEventListener('pointerleave', () => {
-    if (drawing) onPointerUp();
-  });
+  // Safety net: if the pointer is released anywhere (e.g. outside the canvas
+  // after capture is lost on some mobile browsers), still end the stroke
+  // cleanly instead of leaving drawing=true stuck.
+  window.addEventListener('pointerup', onPointerUp);
+  window.addEventListener('pointercancel', onPointerUp);
 
   // ---- Responsive resize ----
   // The canvas backing store stays a fixed 800x600 (constant aspect ratio),

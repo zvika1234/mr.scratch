@@ -87,6 +87,8 @@ const I18N = {
     'toast.needName': 'Please enter your name first',
     'toast.needCode': 'Please enter a room code',
     'toast.needThree': 'Need at least 3 players to start',
+    'toast.connectionLost': 'Connection lost. Trying to reconnect…',
+    'home.leaveConfirm': 'Leave the current game?',
   },
 
   he: {
@@ -173,6 +175,8 @@ const I18N = {
     'toast.needName': 'נא הזן את שמך תחילה',
     'toast.needCode': 'נא הזן קוד חדר',
     'toast.needThree': 'צריך לפחות 3 שחקנים כדי להתחיל',
+    'toast.connectionLost': 'החיבור אבד. מנסה להתחבר מחדש…',
+    'home.leaveConfirm': 'לעזוב את המשחק הנוכחי?',
   },
 };
 

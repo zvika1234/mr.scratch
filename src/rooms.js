@@ -7,7 +7,7 @@ const generateCode = customAlphabet('ABCDEFGHJKLMNPQRSTUVWXYZ23456789', 4);
 
 const rooms = new Map();
 
-function createRoom(hostSocketId, hostName, lang) {
+function createRoom(hostSocketId, hostName, lang, clientId) {
   let code;
   // Defensive: avoid the (astronomically unlikely) chance of code collision.
   do {
@@ -16,10 +16,12 @@ function createRoom(hostSocketId, hostName, lang) {
 
   const host = {
     id: hostSocketId,
+    clientId: clientId || hostSocketId, // stable identity across reconnects
     name: hostName,
     isBot: false,
     isHost: true,
     connected: true,
+    disconnectTimer: null,
   };
 
   const room = {
@@ -72,19 +74,64 @@ function findRoomBySocketId(socketId) {
   return null;
 }
 
-function addPlayer(room, socketId, name) {
+function addPlayer(room, socketId, name, clientId) {
   if (room.players.length + room.bots.length >= 5) return { error: 'room_full' };
   if (room.state !== 'lobby') return { error: 'game_in_progress' };
   const player = {
     id: socketId,
+    clientId: clientId || socketId,
     name: name || 'Player',
     isBot: false,
     isHost: false,
     connected: true,
+    disconnectTimer: null,
   };
   room.players.push(player);
   room.scores[socketId] = 0;
   return { player };
+}
+
+// Replace a player's socket id (used on reconnect). Migrates every reference:
+// scores, turnOrder, impostorId, hostId, votes (keys + values), accusedId.
+function replaceSocketId(room, oldId, newId) {
+  if (oldId === newId) return;
+  const player = room.players.find((p) => p.id === oldId);
+  if (player) player.id = newId;
+  if (room.hostId === oldId) room.hostId = newId;
+  if (room.impostorId === oldId) room.impostorId = newId;
+  if (room.accusedId === oldId) room.accusedId = newId;
+  if (oldId in room.scores) {
+    room.scores[newId] = room.scores[oldId];
+    delete room.scores[oldId];
+  }
+  for (let i = 0; i < room.turnOrder.length; i++) {
+    if (room.turnOrder[i] === oldId) room.turnOrder[i] = newId;
+  }
+  // Votes: keys are voter ids, values are target ids.
+  if (room.votes && typeof room.votes === 'object') {
+    const newVotes = {};
+    for (const [voter, target] of Object.entries(room.votes)) {
+      const k = voter === oldId ? newId : voter;
+      const v = target === oldId ? newId : target;
+      newVotes[k] = v;
+    }
+    room.votes = newVotes;
+  }
+}
+
+// Permanently remove a player and all their references (after disconnect timer expires).
+function purgePlayer(room, socketId) {
+  const idx = room.players.findIndex((p) => p.id === socketId);
+  if (idx === -1) return false;
+  room.players.splice(idx, 1);
+  delete room.scores[socketId];
+  // Remove from turnOrder so they don't get a turn.
+  room.turnOrder = room.turnOrder.filter((id) => id !== socketId);
+  if (room.hostId === socketId && room.players.length > 0) {
+    room.hostId = room.players[0].id;
+    room.players[0].isHost = true;
+  }
+  return true;
 }
 
 function addBot(room) {
@@ -161,6 +208,8 @@ module.exports = {
   addBot,
   removeBot,
   removePlayer,
+  replaceSocketId,
+  purgePlayer,
   allParticipants,
   publicSnapshot,
 };

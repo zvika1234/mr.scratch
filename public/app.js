@@ -2,6 +2,27 @@
 
 const socket = io();
 
+// Stable identity across reconnects — generated once, persisted in localStorage.
+function getClientId() {
+  let id = localStorage.getItem('mrscratch.clientId');
+  if (!id) {
+    id = (window.crypto && crypto.randomUUID)
+      ? crypto.randomUUID()
+      : 'c-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+    localStorage.setItem('mrscratch.clientId', id);
+  }
+  return id;
+}
+const CLIENT_ID = getClientId();
+
+function setActiveRoom(code) {
+  if (code) localStorage.setItem('mrscratch.activeRoom', code);
+  else localStorage.removeItem('mrscratch.activeRoom');
+}
+function getActiveRoom() {
+  return localStorage.getItem('mrscratch.activeRoom') || null;
+}
+
 const State = {
   myId: null,
   roomCode: null,
@@ -67,11 +88,12 @@ document.addEventListener('lang:changed', () => {
 $('#btn-create').addEventListener('click', () => {
   const name = getMyName();
   if (!name) return toast(t('toast.needName'));
-  socket.emit('room:create', { name, lang: getLang() }, (resp) => {
+  socket.emit('room:create', { name, lang: getLang(), clientId: CLIENT_ID }, (resp) => {
     if (!resp || !resp.ok) return toast('Could not create room');
     State.myId = resp.you;
     State.roomCode = resp.code;
     State.snapshot = resp.snapshot;
+    setActiveRoom(resp.code);
     enterLobby();
   });
 });
@@ -88,7 +110,7 @@ function joinFlow() {
   const code = $('#home-code').value.trim().toUpperCase();
   if (!name) return toast(t('toast.needName'));
   if (!code) return toast(t('toast.needCode'));
-  socket.emit('room:join', { name, code }, (resp) => {
+  socket.emit('room:join', { name, code, clientId: CLIENT_ID }, (resp) => {
     if (!resp || !resp.ok) {
       const map = {
         room_not_found: 'toast.roomNotFound',
@@ -100,6 +122,7 @@ function joinFlow() {
     State.myId = resp.you;
     State.roomCode = resp.code;
     State.snapshot = resp.snapshot;
+    setActiveRoom(resp.code);
     enterLobby();
   });
 }
@@ -129,7 +152,9 @@ function renderLobby() {
   for (const p of everyone) {
     const li = document.createElement('li');
     if (p.isBot) li.classList.add('is-bot', 'bot-row');
-    li.innerHTML = `<span>${escapeHtml(p.name)}</span>`;
+    if (p.connected === false) li.classList.add('disconnected');
+    const dot = p.connected === false ? '<span class="dc-dot" title="disconnected">⚠️</span> ' : '';
+    li.innerHTML = `<span>${dot}${escapeHtml(p.name)}</span>`;
     if (p.isHost) {
       const badge = document.createElement('span');
       badge.className = 'badge';
@@ -200,10 +225,20 @@ $('#btn-start').addEventListener('click', () => {
 socket.on('room:update', (snap) => {
   State.snapshot = snap;
   if (snap.state === 'lobby') {
-    showScreen('screen-lobby');
+    // Only auto-navigate to lobby if we're not already on a more advanced screen
+    // (e.g. results), to avoid yanking the user away.
+    if (!document.querySelector('#screen-results.active') &&
+        !document.querySelector('#screen-vote.active') &&
+        !document.querySelector('#screen-guess.active')) {
+      showScreen('screen-lobby');
+    }
+    renderLobby();
+  } else {
+    // Keep the lobby player list fresh too in case anyone reconnects.
     renderLobby();
   }
   renderScoreboard(snap);
+  if (typeof updateHomeButtonVisibility === 'function') updateHomeButtonVisibility();
 });
 
 // ---------- Role assigned (game start) ----------
@@ -389,7 +424,9 @@ function renderScoreboard(snap) {
     const li = document.createElement('li');
     if (p.id === State.myId) li.classList.add('me');
     const score = snap.scores[p.id] ?? 0;
-    li.innerHTML = `<span>${escapeHtml(p.name)}</span><span>${score}</span>`;
+    const dot = p.connected === false ? '<span class="dc-dot" title="disconnected">⚠️</span>' : '';
+    li.innerHTML = `<span>${dot}${escapeHtml(p.name)}</span><span>${score}</span>`;
+    if (p.connected === false) li.classList.add('disconnected');
     ul.appendChild(li);
   }
 }
@@ -423,5 +460,112 @@ function escapeHtml(s) {
 
 // ---------- Disconnect handling ----------
 socket.on('disconnect', () => {
-  toast('Connection lost. Reload to rejoin.');
+  toast(t('toast.connectionLost') || 'Connection lost. Trying to reconnect…');
 });
+
+// Socket.io auto-reconnects the transport. When the new socket lands, attempt
+// to restore the player in their room using the stable clientId.
+socket.on('connect', () => {
+  const code = State.roomCode || getActiveRoom();
+  if (!code) return;
+  attemptReconnect(code);
+});
+
+function attemptReconnect(code) {
+  socket.emit('room:reconnect', { code, clientId: CLIENT_ID }, (resp) => {
+    if (!resp || !resp.ok) {
+      // Stale active room. Forget it so the user lands on Home next visit.
+      if (resp && (resp.error === 'room_not_found' || resp.error === 'player_not_found')) {
+        setActiveRoom(null);
+        State.roomCode = null;
+        State.myId = null;
+        State.snapshot = null;
+        showScreen('screen-home');
+        updateHomeButtonVisibility();
+      }
+      return;
+    }
+    // Restored. Apply the resume payload.
+    State.myId = resp.you;
+    State.roomCode = resp.code;
+    State.snapshot = resp.snapshot;
+    setActiveRoom(resp.code);
+
+    // Apply role + canvas history if game is mid-flight.
+    if (resp.role) {
+      State.role = resp.role.role;
+      State.category = resp.role.category;
+      State.word = resp.role.word;
+      State.isImpostor = State.role === 'impostor';
+      renderRoleBox();
+      Board.clear();
+      Board.setHandlers({
+        onStroke: (s) => socket.emit('draw:stroke', s),
+        onStrokeEnd: () => socket.emit('draw:end'),
+      });
+      if (Array.isArray(resp.canvasOps)) {
+        for (const s of resp.canvasOps) Board.renderStroke(s);
+      }
+    }
+
+    // Jump to the right screen.
+    switch (resp.state) {
+      case 'lobby':         enterLobby(); break;
+      case 'drawing':
+        showScreen('screen-game');
+        if (resp.turn) {
+          State.currentTurnPlayerId = resp.turn.playerId;
+          State.turnDeadline = resp.turn.deadline;
+          $('#round-display').textContent = resp.turn.round;
+          $('#round-total').textContent = resp.turn.totalRounds;
+          const isMyTurn = resp.turn.playerId === State.myId;
+          $('#turn-name').textContent = isMyTurn
+            ? t('game.yourTurn')
+            : t('game.turnOf', { name: resp.turn.playerName });
+          Board.setEnabled(isMyTurn);
+          startTimerBar('#timer-fill', resp.turn.deadline, resp.turn.durationMs);
+        }
+        break;
+      case 'voting':        showScreen('screen-vote'); break;
+      case 'impostor_guess':showScreen('screen-guess'); break;
+      case 'round_results':
+      case 'match_end':     showScreen('screen-results'); break;
+      default: enterLobby();
+    }
+    renderScoreboard(resp.snapshot);
+    updateHomeButtonVisibility();
+  });
+}
+
+// On first page load, if we have an active room saved, the 'connect' handler
+// above will fire and attempt reconnect automatically.
+
+// ---------- Home button ----------
+function updateHomeButtonVisibility() {
+  const btn = $('#home-btn');
+  if (!btn) return;
+  // Visible whenever we're in a room (any state other than home).
+  btn.hidden = !State.roomCode;
+}
+$('#home-btn').addEventListener('click', () => {
+  const inGame = State.snapshot && State.snapshot.state && State.snapshot.state !== 'lobby';
+  if (inGame) {
+    const ok = confirm(t('home.leaveConfirm') || 'Leave the current game?');
+    if (!ok) return;
+  }
+  socket.emit('room:leave');
+  setActiveRoom(null);
+  State.myId = null;
+  State.roomCode = null;
+  State.snapshot = null;
+  State.role = null;
+  State.word = null;
+  State.category = null;
+  State.isImpostor = false;
+  Board.clear();
+  showScreen('screen-home');
+  updateHomeButtonVisibility();
+});
+
+// Initial sync (e.g. fresh load with no active room).
+updateHomeButtonVisibility();

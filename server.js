@@ -38,29 +38,92 @@ function getRoomForSocket(socket) {
 io.on('connection', (socket) => {
   // --- Room create / join ---
 
-  socket.on('room:create', ({ name, lang }, cb) => {
+  socket.on('room:create', ({ name, lang, clientId }, cb) => {
     const safeName = sanitizeName(name);
-    const room = rooms.createRoom(socket.id, safeName, lang);
+    const room = rooms.createRoom(socket.id, safeName, lang, clientId);
     socket.join(room.code);
     socket.data.roomCode = room.code;
+    socket.data.clientId = clientId;
     cb && cb({ ok: true, code: room.code, you: socket.id, snapshot: rooms.publicSnapshot(room) });
     game.broadcastSnapshot(room);
   });
 
-  socket.on('room:join', ({ code, name }, cb) => {
+  socket.on('room:join', ({ code, name, clientId }, cb) => {
     const room = rooms.getRoom((code || '').toUpperCase());
     if (!room) return cb && cb({ ok: false, error: 'room_not_found' });
     const safeName = sanitizeName(name);
-    const result = rooms.addPlayer(room, socket.id, safeName);
+    const result = rooms.addPlayer(room, socket.id, safeName, clientId);
     if (result.error) return cb && cb({ ok: false, error: result.error });
     socket.join(room.code);
     socket.data.roomCode = room.code;
+    socket.data.clientId = clientId;
     cb && cb({ ok: true, code: room.code, you: socket.id, snapshot: rooms.publicSnapshot(room) });
+    game.broadcastSnapshot(room);
+  });
+
+  // Reconnect: client comes back with the same clientId and the room code
+  // it was last in. If the player still exists in the room (within the 60s
+  // grace window), restore them to active state — same role, same score.
+  socket.on('room:reconnect', ({ code, clientId }, cb) => {
+    if (!code || !clientId) return cb && cb({ ok: false, error: 'bad_payload' });
+    const room = rooms.getRoom(String(code).toUpperCase());
+    if (!room) return cb && cb({ ok: false, error: 'room_not_found' });
+    const player = room.players.find((p) => p.clientId === clientId);
+    if (!player) return cb && cb({ ok: false, error: 'player_not_found' });
+
+    // Cancel any pending purge timer.
+    if (player.disconnectTimer) {
+      clearTimeout(player.disconnectTimer);
+      player.disconnectTimer = null;
+    }
+
+    // Migrate every reference from the old socket id to the new one.
+    const oldId = player.id;
+    rooms.replaceSocketId(room, oldId, socket.id);
+    player.connected = true;
+    socket.join(room.code);
+    socket.data.roomCode = room.code;
+    socket.data.clientId = clientId;
+
+    // Build a full resume payload so the client can jump straight back in.
+    const resume = {
+      ok: true,
+      code: room.code,
+      you: socket.id,
+      snapshot: rooms.publicSnapshot(room),
+      state: room.state,
+      canvasOps: room.canvasOps || [],
+    };
+    // If the game has started, send their role + (word, if not impostor).
+    if (room.state !== 'lobby' && room.impostorId) {
+      const isImpostor = room.impostorId === socket.id;
+      resume.role = {
+        role: isImpostor ? 'impostor' : 'player',
+        category: room.categoryKey,
+        word: isImpostor ? null : room.word,
+      };
+      // Current turn info, if drawing.
+      if (room.state === 'drawing' && room.turnDeadline) {
+        const currentTurnId = room.turnOrder[room.turnIndex];
+        const turnPlayer = rooms.allParticipants(room).find((p) => p.id === currentTurnId);
+        resume.turn = {
+          playerId: currentTurnId,
+          playerName: turnPlayer ? turnPlayer.name : '',
+          round: room.currentRound,
+          totalRounds: room.totalRounds,
+          deadline: room.turnDeadline,
+          durationMs: Math.max(0, room.turnDeadline - Date.now()),
+        };
+      }
+    }
+
+    cb && cb(resume);
     game.broadcastSnapshot(room);
   });
 
   socket.on('room:leave', () => {
-    handleDisconnect(socket);
+    // Explicit leave — purge immediately, no grace period.
+    handleLeave(socket);
   });
 
   // --- Lobby controls (host only) ---
@@ -148,31 +211,82 @@ io.on('connection', (socket) => {
   });
 });
 
+const RECONNECT_GRACE_MS = 60_000;
+
+// Soft disconnect: keep the player slot alive for 60s so a returning client
+// (same clientId) can resume. Only purge if they never come back.
 function handleDisconnect(socket) {
   const code = socket.data.roomCode;
   if (!code) return;
   const room = rooms.getRoom(code);
   if (!room) return;
 
-  // Mark disconnected; if it was the active drawer, end their turn.
   const player = room.players.find((p) => p.id === socket.id);
-  if (player) player.connected = false;
+  if (!player) return;
 
-  rooms.removePlayer(room, socket.id);
+  player.connected = false;
+
+  // If they were the active drawer, end their turn so the game keeps moving.
+  if (room.state === 'drawing' && room.turnOrder[room.turnIndex] === socket.id) {
+    game.handleStrokeEnd(room, socket.id);
+  }
+  // If they're a voter mid-vote and haven't voted yet, auto-cast a random vote
+  // so the room isn't blocked waiting on them.
+  if (room.state === 'voting' && !(socket.id in room.votes)) {
+    game.autoVoteFor(room, socket.id);
+  }
+  // If they're the impostor mid-guess, submit an empty guess.
+  if (room.state === 'impostor_guess' && room.impostorId === socket.id) {
+    game.submitImpostorGuess(room, socket.id, '');
+  }
+
+  // Schedule purge after grace window.
+  if (player.disconnectTimer) clearTimeout(player.disconnectTimer);
+  player.disconnectTimer = setTimeout(() => {
+    const current = rooms.getRoom(code);
+    if (!current) return;
+    const stillThere = current.players.find((p) => p.id === socket.id || p.clientId === player.clientId);
+    if (stillThere && stillThere.connected) return; // they came back
+    rooms.purgePlayer(current, stillThere ? stillThere.id : socket.id);
+    if (current.players.length === 0) {
+      rooms.deleteRoom(current.code);
+      return;
+    }
+    game.broadcastSnapshot(current);
+  }, RECONNECT_GRACE_MS);
+
+  game.broadcastSnapshot(room);
+}
+
+// Hard leave (user clicked Home / "leave room"). Purge immediately.
+function handleLeave(socket) {
+  const code = socket.data.roomCode;
+  if (!code) return;
+  const room = rooms.getRoom(code);
+  if (!room) return;
+
+  const player = room.players.find((p) => p.id === socket.id);
+  if (player && player.disconnectTimer) clearTimeout(player.disconnectTimer);
+
+  // Same in-progress cleanup as a soft disconnect.
+  if (room.state === 'drawing' && room.turnOrder[room.turnIndex] === socket.id) {
+    game.handleStrokeEnd(room, socket.id);
+  }
+  if (room.state === 'voting' && !(socket.id in room.votes)) {
+    game.autoVoteFor(room, socket.id);
+  }
+  if (room.state === 'impostor_guess' && room.impostorId === socket.id) {
+    game.submitImpostorGuess(room, socket.id, '');
+  }
+
+  rooms.purgePlayer(room, socket.id);
+  socket.leave(code);
   socket.data.roomCode = null;
 
-  // Empty room: clean up.
   if (room.players.length === 0) {
     rooms.deleteRoom(room.code);
     return;
   }
-
-  // If the disconnected player was currently drawing, advance the turn.
-  if (room.state === 'drawing' && room.turnOrder[room.turnIndex] === socket.id) {
-    // Force end turn for that player.
-    game.handleStrokeEnd(room, socket.id);
-  }
-
   game.broadcastSnapshot(room);
 }
 
