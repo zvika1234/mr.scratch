@@ -423,20 +423,42 @@ button:disabled { opacity: .45; cursor: not-allowed; pointer-events: auto; }
 }
 .turn-line       { color: var(--ink-soft); font-size: .9rem; }
 .turn-line.strong {
-  font-size: 1.1rem; font-weight: 700; color: var(--ink);
-  margin-top: 4px;
+  font-size: 1.5rem; font-weight: 800; color: var(--primary-light);
+  margin-top: 6px; letter-spacing: .3px;
+  text-shadow: 0 0 18px rgba(167, 139, 250, .35);
+}
+/* When it's the local player's turn, hit them over the head with it. */
+.turn-line.strong.is-me {
+  color: var(--accent);
+  font-size: 1.7rem;
+  text-shadow: 0 0 22px rgba(245, 158, 11, .55);
+  animation: yourTurnPulse 1.6s ease-in-out infinite;
+}
+@keyframes yourTurnPulse {
+  0%, 100% { transform: scale(1); filter: brightness(1); }
+  50%      { transform: scale(1.04); filter: brightness(1.2); }
 }
 
 /* ---------- Timer bar ---------- */
 .timer-bar {
-  height: 7px; background: rgba(255,255,255,.1);
+  height: 12px; background: rgba(255,255,255,.08);
   border-radius: var(--radius-pill); overflow: hidden; margin-top: 10px;
+  border: 1px solid rgba(255,255,255,.05);
 }
 .timer-bar > div {
   height: 100%; width: 100%;
   background: linear-gradient(90deg, var(--good), var(--accent), var(--bad));
-  transition: width .1s linear;
+  transition: width .1s linear, background .15s ease;
   border-radius: var(--radius-pill);
+}
+.timer-bar.low > div {
+  background: var(--bad);
+  animation: timerLowPulse .55s ease-in-out infinite;
+  box-shadow: 0 0 14px rgba(248, 113, 113, .8);
+}
+@keyframes timerLowPulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: .55; }
 }
 
 /* ---------- Scoreboard ---------- */

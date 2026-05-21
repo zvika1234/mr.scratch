@@ -276,9 +276,16 @@ socket.on('turn:start', ({ playerId, playerName, round, totalRounds, deadline, d
   $('#round-display').textContent = round;
   $('#round-total').textContent = totalRounds;
   const isMyTurn = playerId === State.myId;
-  $('#turn-name').textContent = isMyTurn
+  const turnName = $('#turn-name');
+  turnName.textContent = isMyTurn
     ? t('game.yourTurn')
     : t('game.turnOf', { name: playerName });
+  turnName.classList.toggle('is-me', isMyTurn);
+  // Restart the entrance animation so the eye is drawn to the new turn.
+  turnName.style.animation = 'none';
+  // eslint-disable-next-line no-unused-expressions
+  turnName.offsetHeight; // force reflow
+  turnName.style.animation = '';
   Board.setEnabled(isMyTurn);
   startTimerBar('#timer-fill', deadline, durationMs);
 });
@@ -330,11 +337,18 @@ socket.on('vote:complete', () => {
 socket.on('guess:begin', ({ impostorId, durationMs, deadline }) => {
   showScreen('screen-guess');
   State.guessDeadline = deadline;
-  const iAmImpostor = State.myId === impostorId;
+  // Trust State.isImpostor (set on role:assigned) over re-deriving here —
+  // socket id can drift across reconnects but isImpostor stays correct.
+  const iAmImpostor = State.isImpostor || State.myId === impostorId;
   $('#guess-form').hidden = !iAmImpostor;
   $('#guess-waiting').hidden = iAmImpostor;
   $('#guess-input').value = '';
-  if (iAmImpostor) $('#guess-input').focus();
+  $('#guess-input').disabled = false;
+  $('#btn-submit-guess').disabled = false;
+  if (iAmImpostor) {
+    // Defer focus a tick to avoid screen-switch blur on mobile.
+    setTimeout(() => $('#guess-input').focus(), 50);
+  }
   startTimerBar('#guess-timer-fill', deadline, durationMs);
 });
 
@@ -343,8 +357,12 @@ $('#guess-input').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') submitGuess();
 });
 function submitGuess() {
+  const btn = $('#btn-submit-guess');
+  if (btn.disabled) return; // already submitted this round
   const guess = $('#guess-input').value.trim();
   socket.emit('impostor:guess', { guess });
+  btn.disabled = true;
+  $('#guess-input').disabled = true;
   $('#guess-form').hidden = true;
   $('#guess-waiting').hidden = false;
 }
@@ -433,14 +451,18 @@ function renderScoreboard(snap) {
 
 // ---------- Timer bar ----------
 let timerHandle = null;
+const LOW_TIME_MS = 3000;
 function startTimerBar(selector, deadline, total) {
   stopTimerBar(selector);
   const el = $(selector);
   if (!el) return;
+  const bar = el.parentElement; // .timer-bar wrapper
+  if (bar) bar.classList.remove('low');
   const tick = () => {
     const remaining = Math.max(0, deadline - Date.now());
     const pct = Math.max(0, Math.min(100, (remaining / total) * 100));
     el.style.width = pct + '%';
+    if (bar) bar.classList.toggle('low', remaining > 0 && remaining <= LOW_TIME_MS);
     if (remaining > 0) timerHandle = requestAnimationFrame(tick);
   };
   tick();
@@ -449,6 +471,8 @@ function stopTimerBar(selector) {
   if (timerHandle) cancelAnimationFrame(timerHandle);
   const el = $(selector);
   if (el) el.style.width = '0%';
+  const bar = el && el.parentElement;
+  if (bar) bar.classList.remove('low');
 }
 
 // ---------- Utilities ----------

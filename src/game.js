@@ -271,18 +271,25 @@ function enterImpostorGuess(room) {
     deadline: Date.now() + IMPOSTOR_GUESS_MS,
   });
 
+  // Snapshot the impostor id at the time the timer is set, so a delayed callback
+  // can never accidentally submit on behalf of NEXT round's impostor.
+  const lockedImpostorId = room.impostorId;
+
   if (impostor && impostor.isBot) {
     // Bot impostor "guesses" wrong (random other word in same category and lang).
-    setTimeout(() => {
+    // Tracked on the room so it can be cancelled if state changes between rounds.
+    room.impostorGuessTimer = setTimeout(() => {
       if (room.state !== 'impostor_guess') return;
+      if (room.impostorId !== lockedImpostorId) return;
       const wrong = pickWrongWord(room.categoryKey, room.lang, room.word);
-      submitImpostorGuess(room, room.impostorId, wrong);
+      submitImpostorGuess(room, lockedImpostorId, wrong);
     }, 1500 + Math.random() * 2000);
   } else {
     // Auto-resolve if the human impostor doesn't submit in time.
     room.impostorGuessTimer = setTimeout(() => {
       if (room.state !== 'impostor_guess') return;
-      submitImpostorGuess(room, room.impostorId, '');
+      if (room.impostorId !== lockedImpostorId) return;
+      submitImpostorGuess(room, lockedImpostorId, '');
     }, IMPOSTOR_GUESS_MS);
   }
 }
@@ -298,8 +305,7 @@ function submitImpostorGuess(room, playerId, guess) {
   }
 
   room.impostorGuess = (guess || '').trim();
-  const correct = normalizeWord(room.impostorGuess) === normalizeWord(room.word);
-  room.impostorGuessCorrect = correct;
+  room.impostorGuessCorrect = isCloseGuess(room.impostorGuess, room.word);
 
   applyScoring(room);
   emitRoundResults(room);
@@ -308,9 +314,65 @@ function submitImpostorGuess(room, playerId, guess) {
 function normalizeWord(s) {
   return (s || '')
     .toLowerCase()
-    .replace(/\s+/g, '')
-    .normalize('NFC')
+    .normalize('NFD')                       // split combining marks
+    .replace(/[̀-ͯ]/g, '')        // strip Latin accents
+    .replace(/[֑-ׇ]/g, '')        // strip Hebrew niqqud & cantillation
+    .replace(/[^\p{L}\p{N}]+/gu, '')        // keep only letters/numbers
     .trim();
+}
+
+// Fuzzy match: accept the guess if it's within a small edit-distance
+// of the secret word. We use Damerau-Levenshtein so an adjacent-character
+// swap (e.g. "loin" vs "lion") counts as a single typo.
+function isCloseGuess(guess, word) {
+  const a = normalizeWord(guess);
+  const b = normalizeWord(word);
+  if (!a || !b) return false;
+  if (a === b) return true;
+
+  // Compound-word containment: "icecream" ↔ "ice cream" survives normalize,
+  // but very short prefixes shouldn't auto-pass — require >= 5 chars of overlap.
+  if (a.length >= 5 && b.includes(a)) return true;
+  if (b.length >= 5 && a.includes(b)) return true;
+
+  const distance = damerauLevenshtein(a, b);
+  const maxLen = Math.max(a.length, b.length);
+  // Scale: 1 typo for 1–4 chars, 2 typos for 5–8, 3 typos for 9+.
+  const threshold = maxLen <= 4 ? 1 : maxLen <= 8 ? 2 : 3;
+  return distance <= threshold;
+}
+
+// Damerau-Levenshtein distance: like Levenshtein but treats adjacent
+// transpositions ("ab" <-> "ba") as a single edit. Word lengths in this
+// game stay small, so the O(m*n) table is fine.
+function damerauLevenshtein(a, b) {
+  if (a === b) return 0;
+  const m = a.length, n = b.length;
+  if (m === 0) return n;
+  if (n === 0) return m;
+
+  const dp = [];
+  for (let i = 0; i <= m; i++) {
+    dp.push(new Array(n + 1).fill(0));
+    dp[i][0] = i;
+  }
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      dp[i][j] = Math.min(
+        dp[i - 1][j] + 1,          // deletion
+        dp[i][j - 1] + 1,          // insertion
+        dp[i - 1][j - 1] + cost    // substitution
+      );
+      // Transposition of two adjacent characters.
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) {
+        dp[i][j] = Math.min(dp[i][j], dp[i - 2][j - 2] + 1);
+      }
+    }
+  }
+  return dp[m][n];
 }
 
 // ---------- Scoring ----------
@@ -374,6 +436,8 @@ function emitRoundResults(room) {
 function nextRound(room) {
   if (room.state !== 'round_results') return;
   // Reset per-round state but preserve scores.
+  if (room.turnTimer) { clearTimeout(room.turnTimer); room.turnTimer = null; }
+  if (room.impostorGuessTimer) { clearTimeout(room.impostorGuessTimer); room.impostorGuessTimer = null; }
   room.impostorId = null;
   room.categoryKey = null;
   room.word = null;
@@ -393,6 +457,8 @@ function nextRound(room) {
 
 function newMatch(room) {
   if (room.state !== 'match_end' && room.state !== 'round_results') return;
+  if (room.turnTimer) { clearTimeout(room.turnTimer); room.turnTimer = null; }
+  if (room.impostorGuessTimer) { clearTimeout(room.impostorGuessTimer); room.impostorGuessTimer = null; }
   for (const id of Object.keys(room.scores)) room.scores[id] = 0;
   room.state = 'lobby';
   broadcastSnapshot(room);
