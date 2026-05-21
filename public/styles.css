@@ -824,11 +824,11 @@ body:has(#screen-home.active) {
 }
 
 /* Role box: slightly taller — most info-dense */
-#screen-game .sidebar > .card:nth-child(1) { flex: 1.8; }
+#screen-game .sidebar > .card:nth-child(1) { flex: 1.7; }
 /* Turn indicator: compact */
-#screen-game .sidebar > .card:nth-child(2) { flex: 1;   }
+#screen-game .sidebar > .card:nth-child(2) { flex: 0.9; }
 /* Scoreboard: largest — list can be long */
-#screen-game .sidebar > .card:nth-child(3) { flex: 2.2; overflow-y: auto; }
+#screen-game .sidebar > .card:nth-child(3) { flex: 2.6; overflow-y: auto; }
 
 /* ── Role box ── */
 #screen-game .role-box {
@@ -838,15 +838,15 @@ body:has(#screen-home.active) {
   justify-content: center;
   align-items: center;     /* center horizontally */
   text-align: center;
-  padding: 20px 16px;
+  padding: 16px 14px;
   gap: 6px;
 }
 #screen-game .role-label {
-  font-size: .78rem;
+  font-size: .9rem;
   letter-spacing: 2px;
 }
 #screen-game .role-value {
-  font-size: 2rem;
+  font-size: 2.4rem;
   margin-bottom: 8px;
 }
 #screen-game .word-row {
@@ -855,14 +855,14 @@ body:has(#screen-home.active) {
   margin-top: 4px;
 }
 #screen-game .word-label {
-  font-size: .75rem;
+  font-size: .88rem;
   letter-spacing: 1.5px;
 }
 #screen-game .word-value {
-  font-size: 1.05rem;
+  font-size: 1.25rem;
 }
 #screen-game .word-value.strong {
-  font-size: 1.5rem;
+  font-size: 1.8rem;
 }
 
 /* ── Turn indicator card ── */
@@ -877,10 +877,10 @@ body:has(#screen-home.active) {
   text-align: center;
 }
 #screen-game .turn-line {
-  font-size: 1rem;
+  font-size: 1.1rem;
 }
 #screen-game .turn-line.strong {
-  font-size: 1.25rem;
+  font-size: 1.45rem;
   margin-top: 6px;
 }
 #screen-game .timer-bar {
@@ -894,30 +894,30 @@ body:has(#screen-home.active) {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  padding: 4px 2px;
+  padding: 2px 2px 4px;
 }
 #screen-game .scoreboard h4 {
-  font-size: .8rem;
+  font-size: .95rem;
   text-align: center;
   letter-spacing: 2px;
-  margin-bottom: 10px;
+  margin-bottom: 6px;
 }
 #screen-game .scoreboard ul {
   flex: 1;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 6px;
 }
 #screen-game .scoreboard li {
-  padding: 10px 14px;
-  font-size: 1rem;
+  padding: 12px 16px;
+  font-size: 1.1rem;
   border-radius: 10px;
 }
 /* Highlight current user's score more prominently */
 #screen-game .scoreboard li.me {
-  font-size: 1.05rem;
-  padding: 12px 14px;
+  font-size: 1.15rem;
+  padding: 14px 16px;
 }
 
 /* Canvas card: size container so children can use cq units */
