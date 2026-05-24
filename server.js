@@ -205,6 +205,14 @@ io.on('connection', (socket) => {
     game.submitImpostorGuess(room, socket.id, guess);
   });
 
+  socket.on('player:kick', ({ targetId } = {}, cb) => {
+    const room = getRoomForSocket(socket);
+    if (!room || !isHost(room, socket.id)) return cb && cb({ error: 'not_host' });
+    if (!targetId || typeof targetId !== 'string') return cb && cb({ error: 'bad_payload' });
+    const result = game.kickPlayer(room, socket.id, targetId);
+    cb && cb(result);
+  });
+
   socket.on('round:next', () => {
     const room = getRoomForSocket(socket);
     if (!room || !isHost(room, socket.id)) return;

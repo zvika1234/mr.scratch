@@ -3,7 +3,7 @@
 // All authoritative state lives on the server. Clients are dumb renderers that
 // receive events and emit user intent.
 
-const { allParticipants, publicSnapshot, deleteRoom } = require('./rooms');
+const { allParticipants, publicSnapshot, deleteRoom, purgePlayer } = require('./rooms');
 const { pickCategory, pickWord, pickWrongWord, CATEGORIES } = require('./words');
 const { botDraw, botPickVote } = require('./bots');
 
@@ -112,6 +112,7 @@ function startNextTurn(room) {
   emitRoom(room, 'turn:announce', {
     playerId: currentPlayerId,
     playerName: participant.name,
+    playerAvatar: participant.avatar || '',
     round: room.currentRound,
     totalRounds: room.totalRounds,
     durationMs: TURN_ANNOUNCE_MS,
@@ -204,7 +205,7 @@ function enterVoting(room) {
   room.state = 'voting';
   room.votes = {};
   emitRoom(room, 'vote:begin', {
-    candidates: allParticipants(room).map(({ id, name, isBot }) => ({ id, name, isBot })),
+    candidates: allParticipants(room).map(({ id, name, avatar, isBot }) => ({ id, name, avatar: avatar || '', isBot })),
   });
   broadcastSnapshot(room);
 
@@ -267,7 +268,10 @@ function resolveVotes(room) {
       topIds.push(id);
     }
   }
-  const accused = topIds[Math.floor(Math.random() * topIds.length)];
+  // Tie = impostor wins. Only pick randomly if there's one clear winner.
+  const accused = topIds.length > 1
+    ? topIds.find((id) => id !== room.impostorId) || topIds[0] // pick non-impostor in tie
+    : topIds[0];
 
   room.voteCounts = counts;
   room.accusedId = accused;
@@ -490,6 +494,74 @@ function newMatch(room) {
   emitRoom(room, 'match:reset', {});
 }
 
+// ---------- Kick player (host only, any phase) ----------
+
+function kickPlayer(room, hostSocketId, targetId) {
+  // Only the host may kick.
+  if (room.hostId !== hostSocketId) return { error: 'not_host' };
+  // Target must be a human player (bots are removed via lobby:removeBot).
+  const player = room.players.find((p) => p.id === targetId);
+  if (!player) return { error: 'player_not_found' };
+  // Host can't kick themselves.
+  if (targetId === room.hostId) return { error: 'cant_kick_self' };
+
+  const state = room.state;
+
+  // Capture turn position BEFORE purge so we can fix the index afterward.
+  const removedTurnIdx = room.turnOrder.indexOf(targetId);
+  const isTheirTurn = state === 'drawing' && room.turnOrder[room.turnIndex] === targetId;
+
+  // Voting cleanup: remove vote they cast and any votes cast FOR them.
+  if (state === 'voting') {
+    delete room.votes[targetId];
+    for (const voter of Object.keys(room.votes)) {
+      if (room.votes[voter] === targetId) delete room.votes[voter];
+    }
+  }
+
+  // Notify the kicked socket before we purge the id reference.
+  if (io) io.to(targetId).emit('you:kicked', {});
+
+  // Remove player (handles players[], scores{}, turnOrder[]).
+  purgePlayer(room, targetId);
+
+  // Drawing-phase disruption handling.
+  if (state === 'drawing') {
+    if (isTheirTurn) {
+      // Active drawer was kicked — cancel their timer and move to next turn.
+      if (room.turnTimer) { clearTimeout(room.turnTimer); room.turnTimer = null; }
+      emitRoom(room, 'turn:end', {});
+      broadcastSnapshot(room);
+      setTimeout(() => startNextTurn(room), 400);
+      return { ok: true };
+    } else if (removedTurnIdx !== -1 && removedTurnIdx < room.turnIndex) {
+      // Removed player was before the current slot — shift index back so the
+      // current drawer's position still lines up correctly.
+      room.turnIndex = Math.max(0, room.turnIndex - 1);
+    }
+  }
+
+  broadcastSnapshot(room);
+
+  // Voting: check if the remaining players have all voted now.
+  if (state === 'voting') {
+    const total = allParticipants(room).length;
+    const voted = Object.keys(room.votes).length;
+    if (total > 0 && voted >= total) {
+      resolveVotes(room);
+    } else {
+      // Refresh the live tally with updated participant count.
+      const counts = {};
+      for (const target of Object.values(room.votes)) {
+        counts[target] = (counts[target] || 0) + 1;
+      }
+      emitRoom(room, 'vote:tally', { voted, total, counts });
+    }
+  }
+
+  return { ok: true };
+}
+
 module.exports = {
   init,
   startGame,
@@ -498,6 +570,7 @@ module.exports = {
   castVote,
   autoVoteFor,
   submitImpostorGuess,
+  kickPlayer,
   nextRound,
   newMatch,
   broadcastSnapshot,

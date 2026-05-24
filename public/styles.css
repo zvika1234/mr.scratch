@@ -436,6 +436,23 @@ button:disabled { opacity: .45; cursor: not-allowed; pointer-events: auto; }
 }
 .bot-row .remove-bot:hover { transform: scale(1.2); }
 
+/* Kick button — small ✕ shown to host next to any non-host player */
+.kick-btn {
+  background: none;
+  border: 1px solid rgba(248, 113, 113, 0.3);
+  color: #f87171;
+  border-radius: 50%;
+  width: 24px; height: 24px;
+  font-size: 0.65rem; line-height: 1;
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  padding: 0;
+  opacity: 0.55;
+  transition: opacity 0.15s, background 0.15s;
+  cursor: pointer;
+}
+.kick-btn:hover { opacity: 1; background: rgba(248, 113, 113, 0.2); }
+
 .host-controls { margin-top: 12px; }
 
 /* ---------- Game grid ---------- */
@@ -583,6 +600,9 @@ button:disabled { opacity: .45; cursor: not-allowed; pointer-events: auto; }
   display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px;
   margin: 14px 0;
 }
+/* Each vote row is a flex container so the kick-btn sits beside the vote button */
+.vote-list li { display: flex; align-items: center; gap: 6px; }
+.vote-list li > button:not(.kick-btn) { flex: 1; width: auto; text-align: center; }
 .vote-list button {
   width: 100%; text-align: center;
   background: var(--glass);

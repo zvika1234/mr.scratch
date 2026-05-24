@@ -211,12 +211,22 @@ function renderLobby() {
     if (p.isBot) li.classList.add('is-bot', 'bot-row');
     if (p.connected === false) li.classList.add('disconnected');
     const dot = p.connected === false ? '<span class="dc-dot" title="disconnected">⚠️</span> ' : '';
-    li.innerHTML = `<span>${dot}${escapeHtml(p.name)}</span>`;
+    li.innerHTML = `<span>${dot}${p.avatar || ''} ${escapeHtml(p.name)}</span>`;
     if (p.isHost) {
       const badge = document.createElement('span');
       badge.className = 'badge';
       badge.textContent = t('lobby.hostBadge');
       li.appendChild(badge);
+    }
+    // Host can kick non-host human players from the lobby.
+    if (isHost() && !p.isHost && !p.isBot) {
+      const kick = document.createElement('button');
+      kick.className = 'kick-btn';
+      kick.title = t('lobby.kickPlayer');
+      kick.textContent = '✕';
+      kick.style.marginInlineStart = 'auto';
+      kick.addEventListener('click', () => socket.emit('player:kick', { targetId: p.id }));
+      li.appendChild(kick);
     }
     if (p.isBot) {
       const badge = document.createElement('span');
@@ -329,7 +339,7 @@ function renderRoleBox() {
 // the player's name. The real turn (drawing + timer) starts on `turn:start`
 // ~1.8s later. We pre-update round + canvas badges here so they're correct
 // the moment the timer appears.
-socket.on('turn:announce', ({ playerId, playerName, round, totalRounds, durationMs }) => {
+socket.on('turn:announce', ({ playerId, playerName, playerAvatar, round, totalRounds, durationMs }) => {
   showScreen('screen-game');
   $('#round-display').textContent = round;
   $('#round-total').textContent = totalRounds;
@@ -344,7 +354,7 @@ socket.on('turn:announce', ({ playerId, playerName, round, totalRounds, duration
   // Sound + haptic feedback for turn start.
   SoundFX.play(isMyTurn ? 'yourTurn' : 'theirTurn');
   if (isMyTurn) SoundFX.vibrate([200, 80, 200]);
-  showTurnAnnouncement({ playerName, isMyTurn, round, totalRounds, durationMs });
+  showTurnAnnouncement({ playerName, playerAvatar, isMyTurn, round, totalRounds, durationMs });
 });
 
 socket.on('turn:start', ({ playerId, playerName, round, totalRounds, deadline, durationMs }) => {
@@ -369,14 +379,15 @@ socket.on('turn:end', () => {
 
 // ---------- Turn announcement overlay ----------
 let announceTimer = null;
-function showTurnAnnouncement({ playerName, isMyTurn, round, totalRounds, durationMs }) {
+function showTurnAnnouncement({ playerName, playerAvatar, isMyTurn, round, totalRounds, durationMs }) {
   const overlay = $('#turn-announce');
   if (!overlay) return;
   const nameEl = $('#ta-name');
   const roundEl = $('#ta-round');
+  const avatarPrefix = playerAvatar ? playerAvatar + ' ' : '';
   nameEl.textContent = isMyTurn
     ? t('game.yourTurn')
-    : t('game.turnOf', { name: playerName });
+    : avatarPrefix + t('game.turnOf', { name: playerName });
   nameEl.classList.toggle('is-me', isMyTurn);
   roundEl.textContent = `${t('game.round')} ${round} / ${totalRounds}`;
   overlay.classList.remove('out');
@@ -423,11 +434,12 @@ socket.on('vote:begin', ({ candidates }) => {
   for (const c of candidates) {
     const li = document.createElement('li');
     const btn = document.createElement('button');
-    btn.textContent = c.name + (c.id === State.myId ? ' ' + t('vote.you') : '');
+    btn.className = 'vote-btn';
+    btn.textContent = (c.avatar ? c.avatar + ' ' : '') + c.name + (c.id === State.myId ? ' ' + t('vote.you') : '');
     btn.addEventListener('click', () => {
       if (c.id === State.myId) return; // can't vote for self
       State.myVote = c.id;
-      list.querySelectorAll('button').forEach((b) => b.classList.remove('selected'));
+      list.querySelectorAll('.vote-btn').forEach((b) => b.classList.remove('selected'));
       btn.classList.add('selected');
       SoundFX.play('click');
       SoundFX.vibrate([50]);
@@ -435,6 +447,15 @@ socket.on('vote:begin', ({ candidates }) => {
     });
     if (c.id === State.myId) btn.disabled = true;
     li.appendChild(btn);
+    // Host can kick any other player during voting.
+    if (isHost() && c.id !== State.myId) {
+      const kick = document.createElement('button');
+      kick.className = 'kick-btn';
+      kick.title = t('lobby.kickPlayer');
+      kick.textContent = '✕';
+      kick.addEventListener('click', () => socket.emit('player:kick', { targetId: c.id }));
+      li.appendChild(kick);
+    }
     list.appendChild(li);
   }
 });
@@ -499,23 +520,22 @@ socket.on('round:result', (data) => {
   }
 
   const everyone = [...State.snapshot.players, ...State.snapshot.bots];
-  const findName = (id) => {
-    const p = everyone.find((x) => x.id === id);
-    return p ? p.name : '???';
-  };
+  const findPlayer = (id) => everyone.find((x) => x.id === id) || { name: '???', avatar: '' };
+  const findName   = (id) => findPlayer(id).name;
+  const findAvatar = (id) => findPlayer(id).avatar || '';
 
   // Winner banner (match over)
   const banner = $('#winner-banner');
   if (data.matchOver && data.winnerId) {
     banner.hidden = false;
-    banner.textContent = '🏆 ' + t('results.winner', { name: findName(data.winnerId) });
+    banner.textContent = '🏆 ' + findAvatar(data.winnerId) + ' ' + t('results.winner', { name: findName(data.winnerId) });
   } else {
     banner.hidden = true;
   }
 
   $('#results-title').textContent = data.matchOver ? t('results.matchTitle') : t('results.title');
   $('#result-impostor').textContent =
-    `${findName(data.impostorId)} — ${data.impostorCaught ? t('results.caught') : t('results.escaped')}`;
+    `${findAvatar(data.impostorId)} ${findName(data.impostorId)} — ${data.impostorCaught ? t('results.caught') : t('results.escaped')}`;
   $('#result-word').textContent = data.word;
   if (data.impostorGuess && data.impostorGuess.length > 0) {
     $('#result-guess-line').hidden = false;
@@ -531,9 +551,8 @@ socket.on('round:result', (data) => {
   const votesUl = $('#result-votes');
   votesUl.innerHTML = '';
   const voteCounts = data.voteCounts || {};
-  // Sort by votes desc, then name. Show every participant (zero-vote players too).
   const voteRows = everyone
-    .map((p) => ({ id: p.id, name: p.name, n: voteCounts[p.id] || 0 }))
+    .map((p) => ({ id: p.id, name: p.name, avatar: p.avatar || '', n: voteCounts[p.id] || 0 }))
     .sort((a, b) => b.n - a.n || a.name.localeCompare(b.name));
   for (const r of voteRows) {
     const li = document.createElement('li');
@@ -544,7 +563,7 @@ socket.on('round:result', (data) => {
       : '';
     const pips = r.n > 0 ? '👤'.repeat(r.n) : '—';
     li.innerHTML =
-      `<span>${escapeHtml(r.name)}${impostorTag}</span>` +
+      `<span>${r.avatar} ${escapeHtml(r.name)}${impostorTag}</span>` +
       `<span class="vote-pips">${pips} <small style="opacity:.7">(${r.n})</small></span>`;
     votesUl.appendChild(li);
   }
@@ -555,7 +574,23 @@ socket.on('round:result', (data) => {
   for (const [id, score] of sorted) {
     const li = document.createElement('li');
     if (id === State.myId) li.classList.add('me');
-    li.innerHTML = `<span>${escapeHtml(findName(id))}</span><span class="score">${score}</span>`;
+    const nameSpan = document.createElement('span');
+    nameSpan.innerHTML = `${findAvatar(id)} ${escapeHtml(findName(id))}`;
+    const scoreSpan = document.createElement('span');
+    scoreSpan.className = 'score';
+    scoreSpan.textContent = score;
+    li.appendChild(nameSpan);
+    li.appendChild(scoreSpan);
+    // Host can kick human players from the results screen.
+    const isHumanPlayer = State.snapshot && State.snapshot.players.some((p) => p.id === id);
+    if (isHost() && id !== State.myId && isHumanPlayer) {
+      const kick = document.createElement('button');
+      kick.className = 'kick-btn';
+      kick.title = t('lobby.kickPlayer');
+      kick.textContent = '✕';
+      kick.addEventListener('click', () => socket.emit('player:kick', { targetId: id }));
+      li.appendChild(kick);
+    }
     ul.appendChild(li);
   }
 
@@ -580,6 +615,22 @@ socket.on('match:reset', () => {
   showScreen('screen-lobby');
 });
 
+// Host kicked this player — clear all state and return to Home.
+socket.on('you:kicked', () => {
+  setActiveRoom(null);
+  State.myId = null;
+  State.roomCode = null;
+  State.snapshot = null;
+  State.role = null;
+  State.word = null;
+  State.category = null;
+  State.isImpostor = false;
+  if (typeof Board !== 'undefined') Board.clear();
+  showScreen('screen-home');
+  updateHomeButtonVisibility();
+  toast(t('toast.youWereKicked'), 4000);
+});
+
 // ---------- Scoreboard (during game) ----------
 function renderScoreboard(snap) {
   const ul = $('#scoreboard');
@@ -589,10 +640,26 @@ function renderScoreboard(snap) {
   for (const p of everyone) {
     const li = document.createElement('li');
     if (p.id === State.myId) li.classList.add('me');
+    if (p.connected === false) li.classList.add('disconnected');
     const score = snap.scores[p.id] ?? 0;
     const dot = p.connected === false ? '<span class="dc-dot" title="disconnected">⚠️</span>' : '';
-    li.innerHTML = `<span>${dot}${escapeHtml(p.name)}</span><span>${score}</span>`;
-    if (p.connected === false) li.classList.add('disconnected');
+    // Name on the left
+    const nameSpan = document.createElement('span');
+    nameSpan.innerHTML = `${dot}${p.avatar || ''} ${escapeHtml(p.name)}`;
+    li.appendChild(nameSpan);
+    // Score + optional kick button grouped on the right
+    const rightGroup = document.createElement('span');
+    rightGroup.style.cssText = 'display:flex;align-items:center;gap:6px;';
+    rightGroup.textContent = String(score);
+    if (isHost() && !p.isBot && p.id !== State.myId && snap.state !== 'lobby') {
+      const kick = document.createElement('button');
+      kick.className = 'kick-btn';
+      kick.title = t('lobby.kickPlayer');
+      kick.textContent = '✕';
+      kick.addEventListener('click', () => socket.emit('player:kick', { targetId: p.id }));
+      rightGroup.appendChild(kick);
+    }
+    li.appendChild(rightGroup);
     ul.appendChild(li);
   }
 }

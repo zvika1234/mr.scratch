@@ -29,6 +29,7 @@ const I18N = {
     'lobby.players': 'Players',
     'lobby.addBot': '+ Add Bot',
     'lobby.removeBot': 'Remove',
+    'lobby.kickPlayer': 'Kick',
     'lobby.category': 'Category',
     'lobby.roomLang': 'Room language',
     'lobby.start': 'Start Game',
@@ -97,6 +98,7 @@ const I18N = {
     'toast.needCode': 'Please enter a room code',
     'toast.needThree': 'Need at least 3 players to start',
     'toast.connectionLost': 'Connection lost. Trying to reconnect…',
+    'toast.youWereKicked': 'You were removed by the host',
     'home.leaveConfirm': 'Leave the current game?',
   },
 
@@ -126,6 +128,7 @@ const I18N = {
     'lobby.players': 'שחקנים',
     'lobby.addBot': '+ הוסף בוט',
     'lobby.removeBot': 'הסר',
+    'lobby.kickPlayer': 'הסר',
     'lobby.category': 'קטגוריה',
     'lobby.roomLang': 'שפת החדר',
     'lobby.start': 'התחל משחק',
@@ -194,6 +197,7 @@ const I18N = {
     'toast.needCode': 'נא הזן קוד חדר',
     'toast.needThree': 'צריך לפחות 3 שחקנים כדי להתחיל',
     'toast.connectionLost': 'החיבור אבד. מנסה להתחבר מחדש…',
+    'toast.youWereKicked': 'הוצאת מהחדר על ידי המנהל',
     'home.leaveConfirm': 'לעזוב את המשחק הנוכחי?',
   },
 };

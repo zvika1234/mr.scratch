@@ -5,6 +5,16 @@ const { customAlphabet } = require('nanoid');
 // 4-char uppercase room codes, alphanumeric minus easily-confused chars.
 const generateCode = customAlphabet('ABCDEFGHJKLMNPQRSTUVWXYZ23456789', 4);
 
+// Each player/bot gets a unique animal avatar from this pool (max 5 players).
+const PLAYER_ANIMALS = ['🦊', '🐸', '🦌', '🦢', '🐋'];
+
+function pickAvatar(room) {
+  const used = new Set([...room.players, ...room.bots].map((p) => p.avatar));
+  const available = PLAYER_ANIMALS.filter((a) => !used.has(a));
+  if (!available.length) return '🎮'; // fallback (should never happen)
+  return available[Math.floor(Math.random() * available.length)];
+}
+
 const rooms = new Map();
 
 function createRoom(hostSocketId, hostName, lang, clientId) {
@@ -14,20 +24,11 @@ function createRoom(hostSocketId, hostName, lang, clientId) {
     code = generateCode();
   } while (rooms.has(code));
 
-  const host = {
-    id: hostSocketId,
-    clientId: clientId || hostSocketId, // stable identity across reconnects
-    name: hostName,
-    isBot: false,
-    isHost: true,
-    connected: true,
-    disconnectTimer: null,
-  };
-
+  // Room must exist before pickAvatar can filter used avatars.
   const room = {
     code,
     hostId: hostSocketId,
-    players: [host],
+    players: [],
     bots: [],
     lang: lang === 'he' ? 'he' : 'en',
     category: 'random',
@@ -50,6 +51,18 @@ function createRoom(hostSocketId, hostName, lang, clientId) {
     impostorGuessTimer: null,
   };
 
+  const host = {
+    id: hostSocketId,
+    clientId: clientId || hostSocketId, // stable identity across reconnects
+    name: hostName,
+    avatar: pickAvatar(room),
+    isBot: false,
+    isHost: true,
+    connected: true,
+    disconnectTimer: null,
+  };
+
+  room.players.push(host);
   rooms.set(code, room);
   return room;
 }
@@ -81,6 +94,7 @@ function addPlayer(room, socketId, name, clientId) {
     id: socketId,
     clientId: clientId || socketId,
     name: name || 'Player',
+    avatar: pickAvatar(room),
     isBot: false,
     isHost: false,
     connected: true,
@@ -93,6 +107,7 @@ function addPlayer(room, socketId, name, clientId) {
 
 // Replace a player's socket id (used on reconnect). Migrates every reference:
 // scores, turnOrder, impostorId, hostId, votes (keys + values), accusedId.
+// Avatar is stored on the player object itself, so it persists automatically.
 function replaceSocketId(room, oldId, newId) {
   if (oldId === newId) return;
   const player = room.players.find((p) => p.id === oldId);
@@ -141,6 +156,7 @@ function addBot(room) {
   const bot = {
     id: `bot-${room.code}-${botNumber}-${Math.random().toString(36).slice(2, 6)}`,
     name: `Bot ${botNumber}`,
+    avatar: pickAvatar(room),
     isBot: true,
     isHost: false,
     connected: true,
@@ -182,14 +198,15 @@ function publicSnapshot(room) {
   return {
     code: room.code,
     hostId: room.hostId,
-    players: room.players.map(({ id, name, isHost, connected }) => ({
+    players: room.players.map(({ id, name, avatar, isHost, connected }) => ({
       id,
       name,
+      avatar,
       isHost,
       isBot: false,
       connected,
     })),
-    bots: room.bots.map(({ id, name }) => ({ id, name, isBot: true })),
+    bots: room.bots.map(({ id, name, avatar }) => ({ id, name, avatar, isBot: true })),
     lang: room.lang,
     category: room.category,
     state: room.state,
