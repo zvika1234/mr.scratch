@@ -47,6 +47,8 @@ function createRoom(hostSocketId, hostName, lang, clientId) {
     turnTimer: null,
     canvasOps: [], // recorded strokes for late joins / state replay (optional)
     votes: {}, // playerId -> targetId
+    voteTimer: null,
+    voteDeadline: null,
     impostorGuess: null,
     impostorGuessTimer: null,
   };
@@ -76,6 +78,7 @@ function deleteRoom(code) {
   if (!room) return;
   // Clear any active timers so they don't fire on a dead room.
   if (room.turnTimer) clearTimeout(room.turnTimer);
+  if (room.voteTimer) clearTimeout(room.voteTimer);
   if (room.impostorGuessTimer) clearTimeout(room.impostorGuessTimer);
   rooms.delete(code);
 }

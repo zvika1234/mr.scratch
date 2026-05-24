@@ -423,7 +423,7 @@ socket.on('draw:stroke', (stroke) => {
 });
 
 // ---------- Voting ----------
-socket.on('vote:begin', ({ candidates }) => {
+socket.on('vote:begin', ({ candidates, durationMs, deadline }) => {
   showScreen('screen-vote');
   SoundFX.play('vote');
   SoundFX.vibrate([150, 50, 150]);
@@ -431,6 +431,8 @@ socket.on('vote:begin', ({ candidates }) => {
   const list = $('#vote-list');
   list.innerHTML = '';
   $('#vote-status').textContent = '';
+  // Start the countdown bar (server sends deadline + durationMs).
+  if (deadline && durationMs) startTimerBar('#vote-timer-fill', deadline, durationMs);
   for (const c of candidates) {
     const li = document.createElement('li');
     const btn = document.createElement('button');
@@ -465,8 +467,9 @@ socket.on('vote:tally', ({ voted, total }) => {
   $('#vote-status').textContent = t('vote.voted', { n: voted, total });
 });
 socket.on('vote:complete', () => {
-  // Server transitions to impostor_guess automatically; we just freeze the UI.
+  // Server transitions to impostor_guess automatically; freeze UI + stop timer.
   $$('#vote-list button').forEach((b) => (b.disabled = true));
+  stopTimerBar('#vote-timer-fill');
 });
 
 // ---------- Impostor guess ----------

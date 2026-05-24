@@ -10,6 +10,7 @@ const { botDraw, botPickVote } = require('./bots');
 const TURN_MS = 10_000;        // 10 seconds per drawing turn (spec)
 const TURN_ANNOUNCE_MS = 1_800; // overlay shown before the turn timer starts
 const BOT_TURN_LEAD_MS = 2_000; // 2 second "thinking" delay before bot starts
+const VOTE_MS = 30_000;         // 30 seconds to cast a vote before auto-vote fires
 const IMPOSTOR_GUESS_MS = 15_000;
 const WIN_SCORE = 6;
 
@@ -204,8 +205,12 @@ function handleStrokeEnd(room, playerId) {
 function enterVoting(room) {
   room.state = 'voting';
   room.votes = {};
+  room.voteDeadline = Date.now() + VOTE_MS;
+
   emitRoom(room, 'vote:begin', {
     candidates: allParticipants(room).map(({ id, name, avatar, isBot }) => ({ id, name, avatar: avatar || '', isBot })),
+    durationMs: VOTE_MS,
+    deadline: room.voteDeadline,
   });
   broadcastSnapshot(room);
 
@@ -217,6 +222,14 @@ function enterVoting(room) {
       if (target) castVote(room, bot.id, target);
     }, 1500 + Math.random() * 1500);
   }
+
+  // When time runs out, resolve with whatever votes were cast.
+  // Players who didn't vote simply abstain — their vote isn't counted.
+  if (room.voteTimer) clearTimeout(room.voteTimer);
+  room.voteTimer = setTimeout(() => {
+    if (room.state !== 'voting') return;
+    resolveVotes(room);
+  }, VOTE_MS);
 }
 
 function castVote(room, voterId, targetId) {
@@ -253,6 +266,8 @@ function autoVoteFor(room, voterId) {
 }
 
 function resolveVotes(room) {
+  // Cancel the auto-vote timer — no longer needed.
+  if (room.voteTimer) { clearTimeout(room.voteTimer); room.voteTimer = null; }
   const counts = {};
   for (const target of Object.values(room.votes)) {
     counts[target] = (counts[target] || 0) + 1;
@@ -268,10 +283,18 @@ function resolveVotes(room) {
       topIds.push(id);
     }
   }
-  // Tie = impostor wins. Only pick randomly if there's one clear winner.
-  const accused = topIds.length > 1
-    ? topIds.find((id) => id !== room.impostorId) || topIds[0] // pick non-impostor in tie
-    : topIds[0];
+  // No votes cast at all → impostor escapes automatically.
+  // Tie → impostor wins (pick a non-impostor as accused → impostorCaught = false).
+  let accused;
+  if (topIds.length === 0) {
+    // Abstention round: pick a non-impostor as accused so impostor escapes.
+    const fallback = allParticipants(room).find((p) => p.id !== room.impostorId);
+    accused = fallback ? fallback.id : room.impostorId;
+  } else if (topIds.length > 1) {
+    accused = topIds.find((id) => id !== room.impostorId) || topIds[0];
+  } else {
+    accused = topIds[0];
+  }
 
   room.voteCounts = counts;
   room.accusedId = accused;
@@ -466,6 +489,7 @@ function nextRound(room) {
   if (room.state !== 'round_results') return;
   // Reset per-round state but preserve scores.
   if (room.turnTimer) { clearTimeout(room.turnTimer); room.turnTimer = null; }
+  if (room.voteTimer) { clearTimeout(room.voteTimer); room.voteTimer = null; }
   if (room.impostorGuessTimer) { clearTimeout(room.impostorGuessTimer); room.impostorGuessTimer = null; }
   room.impostorId = null;
   room.categoryKey = null;
@@ -487,6 +511,7 @@ function nextRound(room) {
 function newMatch(room) {
   if (room.state !== 'match_end' && room.state !== 'round_results') return;
   if (room.turnTimer) { clearTimeout(room.turnTimer); room.turnTimer = null; }
+  if (room.voteTimer) { clearTimeout(room.voteTimer); room.voteTimer = null; }
   if (room.impostorGuessTimer) { clearTimeout(room.impostorGuessTimer); room.impostorGuessTimer = null; }
   for (const id of Object.keys(room.scores)) room.scores[id] = 0;
   room.state = 'lobby';
