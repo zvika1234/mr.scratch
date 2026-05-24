@@ -8,6 +8,7 @@ const { pickCategory, pickWord, pickWrongWord, CATEGORIES } = require('./words')
 const { botDraw, botPickVote } = require('./bots');
 
 const TURN_MS = 10_000;        // 10 seconds per drawing turn (spec)
+const TURN_ANNOUNCE_MS = 1_800; // overlay shown before the turn timer starts
 const BOT_TURN_LEAD_MS = 2_000; // 2 second "thinking" delay before bot starts
 const IMPOSTOR_GUESS_MS = 15_000;
 const WIN_SCORE = 6;
@@ -106,42 +107,57 @@ function startNextTurn(room) {
     return;
   }
 
-  room.turnDeadline = Date.now() + TURN_MS;
-  emitRoom(room, 'turn:start', {
+  // Step 1 — Announce phase. Clients darken the screen and show "X's turn"
+  // for ~1.8s. No drawing yet, no timer yet.
+  emitRoom(room, 'turn:announce', {
     playerId: currentPlayerId,
     playerName: participant.name,
     round: room.currentRound,
     totalRounds: room.totalRounds,
-    deadline: room.turnDeadline,
-    durationMs: TURN_MS,
+    durationMs: TURN_ANNOUNCE_MS,
   });
   broadcastSnapshot(room);
 
-  // Hard turn cap (server-authoritative).
   if (room.turnTimer) clearTimeout(room.turnTimer);
+  // Step 2 — After the announcement fades, kick off the real turn.
   room.turnTimer = setTimeout(() => {
-    endTurn(room, currentPlayerId);
-  }, TURN_MS);
+    if (room.state !== 'drawing' || room.turnOrder[room.turnIndex] !== currentPlayerId) return;
 
-  // If it's a bot's turn, simulate drawing.
-  if (participant.isBot) {
-    setTimeout(() => {
-      // Guard: room/turn might have ended already.
-      if (room.state !== 'drawing' || room.turnOrder[room.turnIndex] !== currentPlayerId) return;
-      botDraw(
-        (stroke) => {
-          if (room.state !== 'drawing' || room.turnOrder[room.turnIndex] !== currentPlayerId) return;
-          const enriched = { ...stroke, playerId: currentPlayerId };
-          room.canvasOps.push(enriched);
-          emitRoom(room, 'draw:stroke', enriched);
-        },
-        () => {
-          if (room.state !== 'drawing' || room.turnOrder[room.turnIndex] !== currentPlayerId) return;
-          endTurn(room, currentPlayerId);
-        }
-      );
-    }, BOT_TURN_LEAD_MS);
-  }
+    room.turnDeadline = Date.now() + TURN_MS;
+    emitRoom(room, 'turn:start', {
+      playerId: currentPlayerId,
+      playerName: participant.name,
+      round: room.currentRound,
+      totalRounds: room.totalRounds,
+      deadline: room.turnDeadline,
+      durationMs: TURN_MS,
+    });
+
+    // Hard turn cap (server-authoritative).
+    room.turnTimer = setTimeout(() => {
+      endTurn(room, currentPlayerId);
+    }, TURN_MS);
+
+    // If it's a bot's turn, simulate drawing after a short "thinking" delay.
+    if (participant.isBot) {
+      setTimeout(() => {
+        // Guard: room/turn might have ended already.
+        if (room.state !== 'drawing' || room.turnOrder[room.turnIndex] !== currentPlayerId) return;
+        botDraw(
+          (stroke) => {
+            if (room.state !== 'drawing' || room.turnOrder[room.turnIndex] !== currentPlayerId) return;
+            const enriched = { ...stroke, playerId: currentPlayerId };
+            room.canvasOps.push(enriched);
+            emitRoom(room, 'draw:stroke', enriched);
+          },
+          () => {
+            if (room.state !== 'drawing' || room.turnOrder[room.turnIndex] !== currentPlayerId) return;
+            endTurn(room, currentPlayerId);
+          }
+        );
+      }, BOT_TURN_LEAD_MS);
+    }
+  }, TURN_ANNOUNCE_MS);
 }
 
 function endTurn(room, expectedPlayerId) {
@@ -207,7 +223,16 @@ function castVote(room, voterId, targetId) {
   if (!(voterId in room.scores)) return;
   if (!(targetId in room.scores)) return;
   room.votes[voterId] = targetId;
-  emitRoom(room, 'vote:tally', { voted: Object.keys(room.votes).length, total: allParticipants(room).length });
+  // Build per-candidate counts to show live 👤 pips on the client.
+  const counts = {};
+  for (const target of Object.values(room.votes)) {
+    counts[target] = (counts[target] || 0) + 1;
+  }
+  emitRoom(room, 'vote:tally', {
+    voted: Object.keys(room.votes).length,
+    total: allParticipants(room).length,
+    counts,
+  });
 
   // All votes in?
   if (Object.keys(room.votes).length >= allParticipants(room).length) {

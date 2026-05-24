@@ -42,7 +42,8 @@ const I18N = {
     'cat.animals': 'Animals',
     'cat.transportation': 'Transportation',
     'cat.clothing': 'Clothing',
-    'cat.fitness': 'Fitness',
+    'cat.fantasy': 'Fantasy',
+    'cat.nature': 'Nature & Weather',
 
     'game.yourRole': 'Your role',
     'game.role.impostor': 'Impostor',
@@ -71,6 +72,7 @@ const I18N = {
     'results.impostorWas': 'The impostor was',
     'results.wordWas': 'The word was',
     'results.impostorGuess': 'Impostor guessed',
+    'results.votes': 'Votes',
     'results.scores': 'Scores',
     'results.next': 'Next Round',
     'results.newMatch': 'New Match',
@@ -79,6 +81,13 @@ const I18N = {
     'results.guessCorrect': 'correct! +1 bonus',
     'results.guessWrong': 'wrong',
     'results.winner': '{name} wins the match!',
+
+    'settings.uiLanguage': 'Interface language',
+    'settings.gameLanguage': 'Game language',
+    'settings.sound': 'Sound',
+    'settings.vibration': 'Vibration',
+    'settings.on': 'On',
+    'settings.off': 'Off',
 
     'toast.linkCopied': 'Share link copied!',
     'toast.roomNotFound': 'Room not found',
@@ -130,7 +139,8 @@ const I18N = {
     'cat.animals': 'חיות',
     'cat.transportation': 'תחבורה',
     'cat.clothing': 'בגדים',
-    'cat.fitness': 'כושר',
+    'cat.fantasy': 'פנטזיה',
+    'cat.nature': 'טבע ומזג אוויר',
 
     'game.yourRole': 'התפקיד שלך',
     'game.role.impostor': 'מתחזה',
@@ -159,6 +169,7 @@ const I18N = {
     'results.impostorWas': 'המתחזה היה',
     'results.wordWas': 'המילה הייתה',
     'results.impostorGuess': 'המתחזה ניחש',
+    'results.votes': 'הצבעות',
     'results.scores': 'ניקוד',
     'results.next': 'סבב הבא',
     'results.newMatch': 'משחק חדש',
@@ -167,6 +178,13 @@ const I18N = {
     'results.guessCorrect': 'נכון! +1 בונוס',
     'results.guessWrong': 'שגוי',
     'results.winner': '{name} ניצח/ה את המשחק!',
+
+    'settings.uiLanguage': 'שפת ממשק',
+    'settings.gameLanguage': 'שפת המשחק',
+    'settings.sound': 'סאונד',
+    'settings.vibration': 'ויברציה',
+    'settings.on': 'פועל',
+    'settings.off': 'כבוי',
 
     'toast.linkCopied': 'קישור שיתוף הועתק!',
     'toast.roomNotFound': 'החדר לא נמצא',

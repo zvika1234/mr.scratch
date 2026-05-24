@@ -8,6 +8,7 @@ const { Server: SocketIOServer } = require('socket.io');
 
 const rooms = require('./src/rooms');
 const game = require('./src/game');
+const { CATEGORY_KEYS } = require('./src/words');
 
 const PORT = process.env.PORT || 3000;
 
@@ -145,9 +146,13 @@ io.on('connection', (socket) => {
     const room = getRoomForSocket(socket);
     if (!room || !isHost(room, socket.id)) return;
     if (room.state !== 'lobby') return;
-    const allowed = ['random', 'food', 'animals', 'transportation', 'clothing', 'fitness'];
-    if (!allowed.includes(category)) return;
+    const allowed = ['random', ...CATEGORY_KEYS];
+    if (!allowed.includes(category)) {
+      console.log(`[setCategory] rejected unknown category "${category}" (allowed: ${allowed.join(',')})`);
+      return;
+    }
     room.category = category;
+    console.log(`[setCategory] room ${room.code} -> ${category}`);
     game.broadcastSnapshot(room);
   });
 
@@ -161,10 +166,18 @@ io.on('connection', (socket) => {
 
   // --- Game flow ---
 
-  socket.on('game:start', (_, cb) => {
+  socket.on('game:start', (payload, cb) => {
     const room = getRoomForSocket(socket);
     if (!room || !isHost(room, socket.id)) return cb && cb({ ok: false, error: 'not_host' });
+    // Defensive: accept category in the start payload too, so the host's
+    // current dropdown choice always wins even if setCategory was lost.
+    const allowed = ['random', ...CATEGORY_KEYS];
+    if (payload && typeof payload.category === 'string' && allowed.includes(payload.category)) {
+      room.category = payload.category;
+    }
+    console.log(`[game:start] room ${room.code} category=${room.category}`);
     const r = game.startGame(room);
+    console.log(`[game:start] room ${room.code} picked categoryKey=${room.categoryKey} word=${room.word}`);
     cb && cb(r);
   });
 

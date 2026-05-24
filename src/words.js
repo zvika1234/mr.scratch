@@ -19,9 +19,13 @@ const CATEGORIES = {
     en: ['Shirt', 'Shoes', 'Hat', 'Coat', 'Dress'],
     he: ['חולצה', 'נעליים', 'כובע', 'מעיל', 'שמלה'],
   },
-  fitness: {
-    en: ['Dumbbell', 'Bicycle', 'Running Shoes', 'Treadmill', 'Yoga Mat'],
-    he: ['משקולת', 'אופניים', 'נעלי ריצה', 'הליכון', 'מזרון יוגה'],
+  fantasy: {
+    en: ['Unicorn', 'Dragon', 'Ghost', 'Castle', 'Monster'],
+    he: ['חד קרן', 'דרקון', 'רוח רפאים', 'טירה', 'מפלצת'],
+  },
+  nature: {
+    en: ['Lightning', 'Rainbow', 'Tornado', 'Fire', 'Volcano'],
+    he: ['ברק', 'קשת בענן', 'טורנדו', 'אש', 'הר געש'],
   },
 };
 

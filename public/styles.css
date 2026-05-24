@@ -111,12 +111,75 @@ body::after {
   backdrop-filter: blur(18px) saturate(160%);
   -webkit-backdrop-filter: blur(18px) saturate(160%);
   border-bottom: 1px solid var(--glass-border);
+  /* anchor for the settings panel absolute positioning */
+  overflow: visible;
 }
 .logo { font-weight: 700; font-size: 1.35rem; letter-spacing: .5px; }
 .logo-mark        { color: var(--ink); }
 .logo-mark.accent { color: var(--primary-light); }
 
 .topbar-actions { display: flex; align-items: center; gap: 8px; }
+
+/* ---------- Settings panel ---------- */
+.settings-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  inset-inline-end: 0;
+  min-width: 260px;
+  background: rgba(13, 13, 26, 0.95);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow);
+  padding: 16px 18px;
+  z-index: 50;
+  animation: settingsPop .2s cubic-bezier(.34,1.4,.64,1);
+}
+@keyframes settingsPop {
+  from { opacity: 0; transform: translateY(-8px) scale(.97); }
+  to   { opacity: 1; transform: translateY(0)   scale(1); }
+}
+.settings-row {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.settings-label {
+  font-size: .8rem;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.settings-options {
+  display: flex;
+  gap: 8px;
+}
+.settings-opt {
+  flex: 1;
+  background: var(--glass);
+  border: 1.5px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  padding: 10px 8px;
+  font-size: .95rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+  text-align: center;
+  transition: background .15s, border-color .15s, color .15s;
+}
+.settings-opt:hover { background: var(--glass-hi); color: var(--ink); }
+.settings-opt.active {
+  background: rgba(99,102,241,.22);
+  border-color: var(--primary);
+  color: var(--ink);
+  box-shadow: 0 0 14px var(--primary-glow);
+}
+.settings-divider {
+  height: 1px;
+  background: var(--line);
+  margin: 12px 0;
+}
 
 .lang-toggle {
   background: var(--glass);
@@ -529,6 +592,19 @@ button:disabled { opacity: .45; cursor: not-allowed; pointer-events: auto; }
   color: var(--ink);
   transition: transform .1s ease, border-color .15s, background .15s, box-shadow .15s;
 }
+/* Vote breakdown on the results screen: 👤 pips next to each player. */
+#result-votes .vote-pips {
+  font-size: 1.05rem;
+  letter-spacing: 2px;
+}
+.impostor-tag {
+  color: #ef4444;
+  font-weight: 800;
+  font-size: 0.78rem;
+  letter-spacing: .04em;
+  margin-inline-start: 6px;
+  text-transform: uppercase;
+}
 .vote-list button:not(:disabled):hover {
   border-color: var(--primary);
   background: rgba(99,102,241,.15);
@@ -823,12 +899,10 @@ body:has(#screen-home.active) {
   margin-bottom: 0;          /* gap handles spacing */
 }
 
-/* Role box: slightly taller — most info-dense */
-#screen-game .sidebar > .card:nth-child(1) { flex: 1.7; }
-/* Turn indicator: compact */
-#screen-game .sidebar > .card:nth-child(2) { flex: 0.9; }
+/* Role box: top card */
+#screen-game .sidebar > .card:nth-child(1) { flex: 1.4; }
 /* Scoreboard: largest — list can be long */
-#screen-game .sidebar > .card:nth-child(3) { flex: 2.6; overflow-y: auto; }
+#screen-game .sidebar > .card:nth-child(2) { flex: 2.6; overflow-y: auto; }
 
 /* ── Role box ── */
 #screen-game .role-box {
@@ -865,27 +939,130 @@ body:has(#screen-home.active) {
   font-size: 1.8rem;
 }
 
-/* ── Turn indicator card ── */
-#screen-game .sidebar > .card:nth-child(2) {
-  display: flex;
+/* ── Canvas clock & round badge ──
+   The clock lives in the top corner of the canvas, replacing the old sidebar
+   turn indicator. Pulses red in the final 3 seconds. */
+#screen-game .canvas-wrap {
+  position: relative; /* anchor for clock/round badges */
+}
+.canvas-clock,
+.canvas-round {
+  position: absolute;
+  top: 10px;
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: var(--radius-pill);
+  background: rgba(13, 13, 26, 0.78);
+  backdrop-filter: blur(10px) saturate(150%);
+  -webkit-backdrop-filter: blur(10px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: var(--ink);
+  font-weight: 700;
+  font-size: 1.05rem;
+  letter-spacing: .4px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .5);
+  user-select: none;
+  pointer-events: none;
+}
+.canvas-clock {
+  inset-inline-start: 12px;
+  font-variant-numeric: tabular-nums;
+  min-width: 78px;
+  justify-content: center;
+  font-size: 1.25rem;
+}
+.canvas-clock .clock-icon {
+  font-size: 1.2rem;
+  line-height: 1;
+}
+.canvas-round {
+  inset-inline-end: 12px;
+  font-size: .95rem;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+}
+.canvas-round strong {
+  color: var(--primary-light);
+  font-size: 1.05rem;
+  margin-inline-start: 4px;
+}
+/* Last 3 seconds: scream "TIME!" */
+.canvas-clock.low {
+  background: rgba(248, 113, 113, 0.92);
+  border-color: rgba(255, 255, 255, .45);
+  color: #fff;
+  box-shadow: 0 0 22px rgba(248, 113, 113, .8), 0 4px 14px rgba(0, 0, 0, .5);
+  animation: clockLowPulse .6s ease-in-out infinite;
+}
+@keyframes clockLowPulse {
+  0%, 100% { transform: scale(1);    filter: brightness(1); }
+  50%      { transform: scale(1.12); filter: brightness(1.25); }
+}
+
+/* ── Turn-start announcement overlay ──
+   Full-screen dim + huge centered name. Visible ~1.8s before the turn timer
+   actually begins (server holds the turn during this window).
+   NOTE: display is managed via the .active class — NOT the hidden attribute —
+   to avoid the CSS specificity conflict where display:flex overrides [hidden]. */
+.turn-announce {
+  display: none; /* hidden by default */
+  position: fixed;
+  inset: 0;
+  z-index: 100; /* above topbar */
   align-items: center;
   justify-content: center;
-  padding: 16px;
+  background: rgba(7, 8, 22, 0.74);
+  backdrop-filter: blur(8px) saturate(140%);
+  -webkit-backdrop-filter: blur(8px) saturate(140%);
 }
-#screen-game .turn-indicator {
-  width: 100%;
+.turn-announce.active {
+  display: flex;
+  animation: turnAnnounceFade .25s ease;
+}
+.turn-announce.out {
+  animation: turnAnnounceFadeOut .35s ease forwards;
+}
+.turn-announce-inner {
   text-align: center;
+  padding: 28px 40px;
+  transform: scale(.92);
+  animation: turnAnnouncePop .55s cubic-bezier(.34, 1.56, .64, 1) forwards;
 }
-#screen-game .turn-line {
-  font-size: 1.1rem;
+.turn-announce-round {
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  margin-bottom: 14px;
 }
-#screen-game .turn-line.strong {
-  font-size: 1.45rem;
-  margin-top: 6px;
+.turn-announce-name {
+  font-size: clamp(2.2rem, 7vw, 4.4rem);
+  font-weight: 800;
+  letter-spacing: .5px;
+  color: var(--primary-light);
+  text-shadow: 0 0 32px rgba(167, 139, 250, .55), 0 4px 18px rgba(0, 0, 0, .6);
+  line-height: 1.1;
 }
-#screen-game .timer-bar {
-  height: 9px;
-  margin-top: 12px;
+.turn-announce-name.is-me {
+  color: var(--accent);
+  text-shadow: 0 0 38px rgba(245, 158, 11, .7), 0 4px 18px rgba(0, 0, 0, .6);
+}
+@keyframes turnAnnounceFade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes turnAnnounceFadeOut {
+  from { opacity: 1; }
+  to   { opacity: 0; visibility: hidden; }
+}
+@keyframes turnAnnouncePop {
+  from { transform: scale(.85); opacity: 0; }
+  to   { transform: scale(1);   opacity: 1; }
 }
 
 /* ── Scoreboard ── */
@@ -897,27 +1074,27 @@ body:has(#screen-home.active) {
   padding: 2px 2px 4px;
 }
 #screen-game .scoreboard h4 {
-  font-size: .95rem;
+  font-size: 1rem;
   text-align: center;
   letter-spacing: 2px;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
 }
 #screen-game .scoreboard ul {
   flex: 1;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 7px;
 }
 #screen-game .scoreboard li {
-  padding: 12px 16px;
-  font-size: 1.1rem;
-  border-radius: 10px;
+  padding: 14px 18px;
+  font-size: 1.25rem;
+  border-radius: 12px;
 }
 /* Highlight current user's score more prominently */
 #screen-game .scoreboard li.me {
-  font-size: 1.15rem;
-  padding: 14px 16px;
+  font-size: 1.32rem;
+  padding: 16px 18px;
 }
 
 /* Canvas card: size container so children can use cq units */

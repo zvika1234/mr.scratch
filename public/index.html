@@ -20,9 +20,34 @@
       <button id="home-btn" class="icon-btn" type="button" aria-label="Home" title="Home" hidden>
         🏠
       </button>
-      <button id="lang-toggle" class="lang-toggle" type="button" aria-label="Change language">
-        <span data-i18n="lang.toggle">עברית</span>
+      <button id="settings-btn" class="icon-btn" type="button" aria-label="Settings">
+        ⚙️
       </button>
+    </div>
+
+    <!-- Settings panel (drops below topbar when open) -->
+    <div id="settings-panel" class="settings-panel" hidden>
+      <div class="settings-row">
+        <span class="settings-label" data-i18n="settings.uiLanguage">Interface language</span>
+        <div class="settings-options">
+          <button class="settings-opt" data-ui-lang="en">🇬🇧 English</button>
+          <button class="settings-opt" data-ui-lang="he">🇮🇱 עברית</button>
+        </div>
+      </div>
+      <div class="settings-row">
+        <span class="settings-label" data-i18n="settings.sound">Sound</span>
+        <div class="settings-options">
+          <button class="settings-opt" data-sound="on">🔊 <span data-i18n="settings.on">On</span></button>
+          <button class="settings-opt" data-sound="off">🔇 <span data-i18n="settings.off">Off</span></button>
+        </div>
+      </div>
+      <div class="settings-row" id="vibration-row">
+        <span class="settings-label" data-i18n="settings.vibration">Vibration</span>
+        <div class="settings-options">
+          <button class="settings-opt" data-vibration="on">📳 <span data-i18n="settings.on">On</span></button>
+          <button class="settings-opt" data-vibration="off">📴 <span data-i18n="settings.off">Off</span></button>
+        </div>
+      </div>
     </div>
   </header>
 
@@ -105,15 +130,8 @@
               <option value="animals"       data-i18n="cat.animals">Animals 🐾</option>
               <option value="transportation"data-i18n="cat.transportation">Transportation 🚗</option>
               <option value="clothing"      data-i18n="cat.clothing">Clothing 👕</option>
-              <option value="fitness"       data-i18n="cat.fitness">Fitness 💪</option>
-            </select>
-          </label>
-
-          <label class="field">
-            <span>🌐 <span data-i18n="lobby.roomLang">Room language</span></span>
-            <select id="lobby-lang">
-              <option value="en">English</option>
-              <option value="he">עברית</option>
+              <option value="fantasy"       data-i18n="cat.fantasy">Fantasy 🦄</option>
+              <option value="nature"        data-i18n="cat.nature">Nature &amp; Weather 🌪️</option>
             </select>
           </label>
 
@@ -148,19 +166,6 @@
             </div>
           </div>
 
-          <!-- Turn indicator -->
-          <div class="card" style="padding:14px">
-            <div class="turn-indicator" id="turn-indicator" style="background:none;border:none;padding:0">
-              <div class="turn-line">
-                ⚔️ <span data-i18n="game.round">Round</span>
-                <span id="round-display" style="font-weight:700;color:var(--primary-light)">1</span>
-                / <span id="round-total">3</span>
-              </div>
-              <div class="turn-line strong" id="turn-name">—</div>
-              <div class="timer-bar" style="margin-top:10px"><div id="timer-fill"></div></div>
-            </div>
-          </div>
-
           <!-- Scoreboard -->
           <div class="card" style="padding:14px">
             <div class="scoreboard">
@@ -173,6 +178,18 @@
         <!-- Canvas -->
         <div class="canvas-area card">
           <div class="canvas-wrap">
+            <!-- Clock badge: lives in the corner of the canvas, starts when the
+                 announce overlay disappears, blinks red in the final 3 seconds. -->
+            <div id="canvas-clock" class="canvas-clock" hidden>
+              <span class="clock-icon">⏰</span>
+              <span id="canvas-clock-time">10</span>
+            </div>
+            <!-- Round badge: small, opposite corner, just so people can glance. -->
+            <div id="canvas-round" class="canvas-round" hidden>
+              <span data-i18n="game.round">Round</span>
+              <strong id="round-display">1</strong>
+              /<span id="round-total">3</span>
+            </div>
             <canvas id="board" width="800" height="600"></canvas>
           </div>
           <div class="palette" id="palette"></div>
@@ -229,6 +246,9 @@
           <strong id="result-guess">—</strong>
         </div>
 
+        <h3 style="margin-top:20px">🗳️ <span data-i18n="results.votes">Votes</span></h3>
+        <ul id="result-votes" class="players-list"></ul>
+
         <h3 style="margin-top:20px">🏆 <span data-i18n="results.scores">Scores</span></h3>
         <ul id="result-scores" class="players-list"></ul>
 
@@ -245,10 +265,19 @@
 
   </main>
 
+  <!-- Turn-start announcement overlay (full-screen, ~1.8s, then auto-hides). -->
+  <div id="turn-announce" class="turn-announce">
+    <div class="turn-announce-inner">
+      <div class="turn-announce-round" id="ta-round">Round 1 / 3</div>
+      <div class="turn-announce-name" id="ta-name">—</div>
+    </div>
+  </div>
+
   <div id="toast" class="toast" hidden></div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="i18n.js"></script>
+  <script src="audio.js"></script>
   <script src="canvas.js"></script>
   <script src="app.js"></script>
 </body>

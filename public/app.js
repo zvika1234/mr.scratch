@@ -44,6 +44,15 @@ const $$ = (sel) => document.querySelectorAll(sel);
 function showScreen(id) {
   $$('.screen').forEach((s) => s.classList.remove('active'));
   $(`#${id}`).classList.add('active');
+  // Leaving the game screen always tears down the canvas overlays + timer.
+  if (id !== 'screen-game') {
+    if (typeof hideTurnAnnouncement === 'function') hideTurnAnnouncement(true);
+    if (typeof stopCanvasClock === 'function') stopCanvasClock();
+    const clock = document.getElementById('canvas-clock');
+    const round = document.getElementById('canvas-round');
+    if (clock) clock.hidden = true;
+    if (round) round.hidden = true;
+  }
 }
 
 function toast(msg, duration = 2200) {
@@ -67,14 +76,61 @@ $('#home-name').addEventListener('input', (e) => {
 });
 $('#home-name').value = localStorage.getItem('mrscratch.name') || '';
 
-// ---------- Language toggle ----------
-$('#lang-toggle').addEventListener('click', () => {
-  const next = getLang() === 'en' ? 'he' : 'en';
-  setLang(next);
-  // If host, sync room language with server.
-  if (State.snapshot && State.snapshot.hostId === State.myId) {
-    socket.emit('lobby:setLang', { lang: next });
+function renderSettingsPanel() {
+  const curUi = getLang();
+  $$('[data-ui-lang]').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.uiLang === curUi);
+  });
+  $$('[data-sound]').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.sound === (SoundFX.soundOn ? 'on' : 'off'));
+  });
+  $$('[data-vibration]').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.vibration === (SoundFX.vibrationOn ? 'on' : 'off'));
+  });
+  // Hide vibration row on iOS / browsers without Vibration API support.
+  const vibRow = $('#vibration-row');
+  if (vibRow) vibRow.hidden = !navigator.vibrate;
+}
+
+// ---------- Settings panel ----------
+const settingsBtn = $('#settings-btn');
+const settingsPanel = $('#settings-panel');
+settingsBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  const isOpen = !settingsPanel.hidden;
+  settingsPanel.hidden = isOpen;
+  if (!isOpen) renderSettingsPanel();
+});
+// Close panel when clicking anywhere outside.
+document.addEventListener('click', (e) => {
+  if (!settingsPanel.hidden && !settingsPanel.contains(e.target) && e.target !== settingsBtn) {
+    settingsPanel.hidden = true;
   }
+});
+// Initialise button states on load.
+renderSettingsPanel();
+
+// ---------- UI language (via settings panel) ----------
+$$('[data-ui-lang]').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    setLang(btn.dataset.uiLang);
+    renderSettingsPanel();
+  });
+});
+
+// ---------- Sound & Vibration toggles ----------
+$$('[data-sound]').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    SoundFX.setSoundOn(btn.dataset.sound === 'on');
+    SoundFX.unlock(); // pre-warm AudioContext on this gesture
+    renderSettingsPanel();
+  });
+});
+$$('[data-vibration]').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    SoundFX.setVibrationOn(btn.dataset.vibration === 'on');
+    renderSettingsPanel();
+  });
 });
 
 // React to language changes (refresh dynamic UI bits).
@@ -82,13 +138,14 @@ document.addEventListener('lang:changed', () => {
   if (State.snapshot) renderLobby();
   if (State.snapshot) renderScoreboard(State.snapshot);
   if (State.role) renderRoleBox();
+  renderSettingsPanel(); // keep panel buttons in sync
 });
 
 // ---------- Home screen ----------
 $('#btn-create').addEventListener('click', () => {
   const name = getMyName();
   if (!name) return toast(t('toast.needName'));
-  socket.emit('room:create', { name, lang: getLang(), clientId: CLIENT_ID }, (resp) => {
+  socket.emit('room:create', { name, lang: 'en', clientId: CLIENT_ID }, (resp) => {
     if (!resp || !resp.ok) return toast('Could not create room');
     State.myId = resp.you;
     State.roomCode = resp.code;
@@ -188,7 +245,6 @@ function renderLobby() {
     hostCtl.hidden = false;
     waiting.hidden = true;
     $('#lobby-category').value = snap.category;
-    $('#lobby-lang').value = snap.lang;
     const total = snap.players.length + snap.bots.length;
     $('#btn-start').disabled = total < 3 || total > 5;
   } else {
@@ -205,16 +261,16 @@ $('#btn-add-bot').addEventListener('click', () => socket.emit('lobby:addBot'));
 $('#lobby-category').addEventListener('change', (e) =>
   socket.emit('lobby:setCategory', { category: e.target.value })
 );
-$('#lobby-lang').addEventListener('change', (e) => {
-  setLang(e.target.value);
-  socket.emit('lobby:setLang', { lang: e.target.value });
-});
+// (lobby-lang selector removed — game language is now set via the ⚙️ settings panel)
 $('#btn-copy-link').addEventListener('click', () => {
   const url = `${window.location.origin}${window.location.pathname}?room=${State.roomCode}`;
   navigator.clipboard.writeText(url).then(() => toast(t('toast.linkCopied')));
 });
 $('#btn-start').addEventListener('click', () => {
-  socket.emit('game:start', {}, (resp) => {
+  // Send the current dropdown value as a fallback in case a prior setCategory
+  // event was lost. The server uses this as the authoritative choice.
+  const category = $('#lobby-category').value || 'random';
+  socket.emit('game:start', { category }, (resp) => {
     if (!resp || !resp.ok) {
       if (resp && resp.error === 'need_three_players') toast(t('toast.needThree'));
     }
@@ -269,31 +325,84 @@ function renderRoleBox() {
 }
 
 // ---------- Turn flow ----------
+// Step 1 — Server announces the upcoming turn. We darken the screen and show
+// the player's name. The real turn (drawing + timer) starts on `turn:start`
+// ~1.8s later. We pre-update round + canvas badges here so they're correct
+// the moment the timer appears.
+socket.on('turn:announce', ({ playerId, playerName, round, totalRounds, durationMs }) => {
+  showScreen('screen-game');
+  $('#round-display').textContent = round;
+  $('#round-total').textContent = totalRounds;
+  $('#canvas-round').hidden = false;
+  // Reset the clock display to the full 10s so the overlay teases it.
+  const clockTime = $('#canvas-clock-time');
+  if (clockTime) clockTime.textContent = '10';
+  $('#canvas-clock').classList.remove('low');
+  $('#canvas-clock').hidden = false;
+
+  const isMyTurn = playerId === State.myId;
+  // Sound + haptic feedback for turn start.
+  SoundFX.play(isMyTurn ? 'yourTurn' : 'theirTurn');
+  if (isMyTurn) SoundFX.vibrate([200, 80, 200]);
+  showTurnAnnouncement({ playerName, isMyTurn, round, totalRounds, durationMs });
+});
+
 socket.on('turn:start', ({ playerId, playerName, round, totalRounds, deadline, durationMs }) => {
   showScreen('screen-game');
   State.currentTurnPlayerId = playerId;
   State.turnDeadline = deadline;
   $('#round-display').textContent = round;
   $('#round-total').textContent = totalRounds;
+  $('#canvas-round').hidden = false;
+  // Make sure the overlay is gone (defensive — should already be hiding).
+  hideTurnAnnouncement(true);
+
   const isMyTurn = playerId === State.myId;
-  const turnName = $('#turn-name');
-  turnName.textContent = isMyTurn
-    ? t('game.yourTurn')
-    : t('game.turnOf', { name: playerName });
-  turnName.classList.toggle('is-me', isMyTurn);
-  // Restart the entrance animation so the eye is drawn to the new turn.
-  turnName.style.animation = 'none';
-  // eslint-disable-next-line no-unused-expressions
-  turnName.offsetHeight; // force reflow
-  turnName.style.animation = '';
   Board.setEnabled(isMyTurn);
-  startTimerBar('#timer-fill', deadline, durationMs);
+  startCanvasClock(deadline, durationMs);
 });
 
 socket.on('turn:end', () => {
   Board.setEnabled(false);
-  stopTimerBar('#timer-fill');
+  stopCanvasClock();
 });
+
+// ---------- Turn announcement overlay ----------
+let announceTimer = null;
+function showTurnAnnouncement({ playerName, isMyTurn, round, totalRounds, durationMs }) {
+  const overlay = $('#turn-announce');
+  if (!overlay) return;
+  const nameEl = $('#ta-name');
+  const roundEl = $('#ta-round');
+  nameEl.textContent = isMyTurn
+    ? t('game.yourTurn')
+    : t('game.turnOf', { name: playerName });
+  nameEl.classList.toggle('is-me', isMyTurn);
+  roundEl.textContent = `${t('game.round')} ${round} / ${totalRounds}`;
+  overlay.classList.remove('out');
+  // Use .active class — NOT the hidden attribute — to show/hide the overlay.
+  // Using hidden+display:flex causes a CSS specificity conflict where flex wins
+  // and the overlay can never be hidden. Class-based toggle avoids this.
+  overlay.classList.add('active');
+  // Force reflow so the fade-in animation replays on every new turn.
+  // eslint-disable-next-line no-unused-expressions
+  overlay.offsetHeight;
+  // Auto-hide just before the server fires turn:start.
+  if (announceTimer) clearTimeout(announceTimer);
+  const fadeAt = Math.max(0, (durationMs || 1800) - 350);
+  announceTimer = setTimeout(() => hideTurnAnnouncement(false), fadeAt);
+}
+function hideTurnAnnouncement(immediate) {
+  const overlay = $('#turn-announce');
+  if (!overlay || !overlay.classList.contains('active')) return;
+  if (announceTimer) { clearTimeout(announceTimer); announceTimer = null; }
+  if (immediate) {
+    overlay.classList.remove('active', 'out');
+    return;
+  }
+  overlay.classList.add('out');
+  setTimeout(() => { overlay.classList.remove('active', 'out'); }, 350);
+}
 
 // ---------- Stroke broadcast ----------
 socket.on('draw:stroke', (stroke) => {
@@ -305,6 +414,8 @@ socket.on('draw:stroke', (stroke) => {
 // ---------- Voting ----------
 socket.on('vote:begin', ({ candidates }) => {
   showScreen('screen-vote');
+  SoundFX.play('vote');
+  SoundFX.vibrate([150, 50, 150]);
   State.myVote = null;
   const list = $('#vote-list');
   list.innerHTML = '';
@@ -318,6 +429,8 @@ socket.on('vote:begin', ({ candidates }) => {
       State.myVote = c.id;
       list.querySelectorAll('button').forEach((b) => b.classList.remove('selected'));
       btn.classList.add('selected');
+      SoundFX.play('click');
+      SoundFX.vibrate([50]);
       socket.emit('vote:cast', { targetId: c.id });
     });
     if (c.id === State.myId) btn.disabled = true;
@@ -325,6 +438,8 @@ socket.on('vote:begin', ({ candidates }) => {
     list.appendChild(li);
   }
 });
+// Live tally: only show "N/total voted" count, NOT per-candidate breakdown
+// (that would bias the vote). Per-candidate counts appear on the results screen.
 socket.on('vote:tally', ({ voted, total }) => {
   $('#vote-status').textContent = t('vote.voted', { n: voted, total });
 });
@@ -371,6 +486,17 @@ function submitGuess() {
 socket.on('round:result', (data) => {
   showScreen('screen-results');
   stopTimerBar('#guess-timer-fill');
+  // Sound + haptic for round/match outcome.
+  if (data.matchOver && data.winnerId === State.myId) {
+    SoundFX.play('win');
+    SoundFX.vibrate([300, 100, 300, 100, 600]);
+  } else if (data.impostorCaught) {
+    SoundFX.play('caught');
+    SoundFX.vibrate([200, 100, 200, 100, 400]);
+  } else {
+    SoundFX.play('escaped');
+    SoundFX.vibrate([400, 100, 400]);
+  }
 
   const everyone = [...State.snapshot.players, ...State.snapshot.bots];
   const findName = (id) => {
@@ -399,6 +525,28 @@ socket.on('round:result', (data) => {
     guessEl.className = data.impostorGuessCorrect ? 'good' : '';
   } else {
     $('#result-guess-line').hidden = true;
+  }
+
+  // Vote breakdown — who got how many votes (with 👤 pips).
+  const votesUl = $('#result-votes');
+  votesUl.innerHTML = '';
+  const voteCounts = data.voteCounts || {};
+  // Sort by votes desc, then name. Show every participant (zero-vote players too).
+  const voteRows = everyone
+    .map((p) => ({ id: p.id, name: p.name, n: voteCounts[p.id] || 0 }))
+    .sort((a, b) => b.n - a.n || a.name.localeCompare(b.name));
+  for (const r of voteRows) {
+    const li = document.createElement('li');
+    if (r.id === State.myId) li.classList.add('me');
+    const isImpostor = r.id === data.impostorId;
+    const impostorTag = isImpostor
+      ? `<span class="impostor-tag">🕵️ ${t('game.role.impostor')}</span>`
+      : '';
+    const pips = r.n > 0 ? '👤'.repeat(r.n) : '—';
+    li.innerHTML =
+      `<span>${escapeHtml(r.name)}${impostorTag}</span>` +
+      `<span class="vote-pips">${pips} <small style="opacity:.7">(${r.n})</small></span>`;
+    votesUl.appendChild(li);
   }
 
   const ul = $('#result-scores');
@@ -449,7 +597,7 @@ function renderScoreboard(snap) {
   }
 }
 
-// ---------- Timer bar ----------
+// ---------- Timer bar (still used by the impostor-guess screen) ----------
 let timerHandle = null;
 const LOW_TIME_MS = 3000;
 function startTimerBar(selector, deadline, total) {
@@ -473,6 +621,44 @@ function stopTimerBar(selector) {
   if (el) el.style.width = '0%';
   const bar = el && el.parentElement;
   if (bar) bar.classList.remove('low');
+}
+
+// ---------- Canvas clock (drawing turn) ----------
+let clockHandle = null;
+function startCanvasClock(deadline /* ms epoch */, _total) {
+  stopCanvasClock();
+  const wrap = $('#canvas-clock');
+  const timeEl = $('#canvas-clock-time');
+  if (!wrap || !timeEl) return;
+  wrap.hidden = false;
+  wrap.classList.remove('low');
+
+  let lastTickSec = -1; // tracks which second we last beeped on
+  const tick = () => {
+    const remaining = Math.max(0, deadline - Date.now());
+    // Show whole seconds (rounded UP), so a fresh turn reads "10" not "9".
+    const secs = Math.ceil(remaining / 1000);
+    timeEl.textContent = String(secs);
+    const isLow = remaining > 0 && remaining <= LOW_TIME_MS;
+    wrap.classList.toggle('low', isLow);
+    // Beep + vibrate once per second in the last 3 seconds.
+    if (isLow && secs !== lastTickSec) {
+      lastTickSec = secs;
+      SoundFX.play('tick');
+      SoundFX.vibrate([80]);
+    }
+    if (remaining > 0) {
+      clockHandle = requestAnimationFrame(tick);
+    } else {
+      timeEl.textContent = '0';
+    }
+  };
+  tick();
+}
+function stopCanvasClock() {
+  if (clockHandle) { cancelAnimationFrame(clockHandle); clockHandle = null; }
+  const wrap = $('#canvas-clock');
+  if (wrap) wrap.classList.remove('low');
 }
 
 // ---------- Utilities ----------
@@ -542,12 +728,14 @@ function attemptReconnect(code) {
           State.turnDeadline = resp.turn.deadline;
           $('#round-display').textContent = resp.turn.round;
           $('#round-total').textContent = resp.turn.totalRounds;
+          $('#canvas-round').hidden = false;
+          $('#canvas-clock').hidden = false;
           const isMyTurn = resp.turn.playerId === State.myId;
-          $('#turn-name').textContent = isMyTurn
-            ? t('game.yourTurn')
-            : t('game.turnOf', { name: resp.turn.playerName });
           Board.setEnabled(isMyTurn);
-          startTimerBar('#timer-fill', resp.turn.deadline, resp.turn.durationMs);
+          // Reconnect lands mid-turn — skip the announce overlay and just
+          // resume the clock at the remaining time.
+          hideTurnAnnouncement(true);
+          startCanvasClock(resp.turn.deadline, resp.turn.durationMs);
         }
         break;
       case 'voting':        showScreen('screen-vote'); break;
