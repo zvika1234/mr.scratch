@@ -45,6 +45,8 @@ const I18N = {
     'cat.clothing': 'Clothing',
     'cat.fantasy': 'Fantasy',
     'cat.nature': 'Nature & Weather',
+    'cat.places': 'Places & Buildings',
+    'cat.objects': 'Objects',
 
     'game.yourRole': 'Your role',
     'game.role.impostor': 'Impostor',
@@ -144,6 +146,8 @@ const I18N = {
     'cat.clothing': 'בגדים',
     'cat.fantasy': 'פנטזיה',
     'cat.nature': 'טבע ומזג אוויר',
+    'cat.places': 'מקומות ומבנים',
+    'cat.objects': 'חפצים',
 
     'game.yourRole': 'התפקיד שלך',
     'game.role.impostor': 'מתחזה',

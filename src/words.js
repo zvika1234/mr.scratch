@@ -4,28 +4,36 @@
 
 const CATEGORIES = {
   food: {
-    en: ['Pizza', 'Burger', 'Apple', 'Sushi', 'Ice Cream'],
-    he: ['פיצה', 'המבורגר', 'תפוח', 'סושי', 'גלידה'],
+    en: ['Pizza', 'Burger', 'Apple', 'Sushi', 'Ice Cream', 'Soup', 'Watermelon', 'Donut', 'Popcorn', 'Cupcake'],
+    he: ['פיצה', 'המבורגר', 'תפוח', 'סושי', 'גלידה', 'מרק', 'אבטיח', 'סופגנייה', 'פופקורן', 'קאפקייק'],
   },
   animals: {
-    en: ['Lion', 'Dog', 'Elephant', 'Cat', 'Monkey'],
-    he: ['אריה', 'כלב', 'פיל', 'חתול', 'קוף'],
+    en: ['Lion', 'Dog', 'Elephant', 'Cat', 'Monkey', 'Giraffe', 'Deer', 'Rhino', 'Zebra', 'Frog'],
+    he: ['אריה', 'כלב', 'פיל', 'חתול', 'קוף', 'ג\'ירפה', 'צבי', 'קרנף', 'זברה', 'צפרדע'],
   },
   transportation: {
-    en: ['Car', 'Airplane', 'Train', 'Bicycle', 'Ship'],
-    he: ['מכונית', 'מטוס', 'רכבת', 'אופניים', 'אונייה'],
+    en: ['Car', 'Airplane', 'Train', 'Bicycle', 'Ship', 'Rocket', 'Truck', 'Helicopter', 'Roller Coaster', 'Ambulance'],
+    he: ['מכונית', 'מטוס', 'רכבת', 'אופניים', 'אונייה', 'רקטה', 'משאית', 'מסוק', 'רכבת הרים', 'אמבולנס'],
   },
   clothing: {
-    en: ['Shirt', 'Shoes', 'Hat', 'Coat', 'Dress'],
-    he: ['חולצה', 'נעליים', 'כובע', 'מעיל', 'שמלה'],
+    en: ['Shirt', 'Shoes', 'Hat', 'Coat', 'Dress', 'Crown', 'Suit', 'Boots', 'Socks', 'Gloves'],
+    he: ['חולצה', 'נעליים', 'כובע', 'מעיל', 'שמלה', 'כתר', 'חליפה', 'מגפיים', 'גרביים', 'כפפות'],
   },
   fantasy: {
-    en: ['Unicorn', 'Dragon', 'Ghost', 'Castle', 'Monster'],
-    he: ['חד קרן', 'דרקון', 'רוח רפאים', 'טירה', 'מפלצת'],
+    en: ['Unicorn', 'Dragon', 'Ghost', 'Castle', 'Monster', 'Wizard', 'Pirate', 'Witch', 'Alien', 'Goblin'],
+    he: ['חד קרן', 'דרקון', 'רוח רפאים', 'טירה', 'מפלצת', 'קוסם', 'פיראט', 'מכשפה', 'חייזר', 'גובלין'],
   },
   nature: {
-    en: ['Lightning', 'Rainbow', 'Tornado', 'Fire', 'Volcano'],
-    he: ['ברק', 'קשת בענן', 'טורנדו', 'אש', 'הר געש'],
+    en: ['Lightning', 'Rainbow', 'Tornado', 'Fire', 'Volcano', 'Island', 'Forest', 'Tree', 'Beach', 'Tsunami'],
+    he: ['ברק', 'קשת בענן', 'טורנדו', 'אש', 'הר געש', 'אי', 'יער', 'עץ', 'חוף ים', 'צונאמי'],
+  },
+  places: {
+    en: ['Farm', 'Museum', 'Airport', 'Playground', 'Gym', 'Water Park', 'Supermarket', 'Prison', 'Zoo', 'Cinema'],
+    he: ['חווה', 'מוזיאון', 'נמל תעופה', 'גן משחקים', 'חדר כושר', 'פארק מים', 'סופרמרקט', 'בית סוהר', 'גן חיות', 'בית קולנוע'],
+  },
+  objects: {
+    en: ['Piano', 'Compass', 'Slot Machine', 'Drone', 'Umbrella', 'Camera', 'Computer', 'Telescope', 'Chair', 'Bed'],
+    he: ['פסנתר', 'מצפן', 'מכונת מזל', 'רחפן', 'מטרייה', 'מצלמה', 'מחשב', 'טלסקופ', 'כיסא', 'מיטה'],
   },
 };
 
