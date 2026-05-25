@@ -13,7 +13,17 @@ const { CATEGORY_KEYS } = require('./src/words');
 const PORT = process.env.PORT || 3000;
 
 const app = express();
-app.use(express.static(path.join(__dirname, 'public')));
+// Serve static files. HTML gets no-cache headers so Render's CDN always
+// fetches the latest version; JS/CSS/images can be cached normally.
+app.use(express.static(path.join(__dirname, 'public'), {
+  setHeaders(res, filePath) {
+    if (filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    }
+  },
+}));
 
 const server = http.createServer(app);
 const io = new SocketIOServer(server, {
