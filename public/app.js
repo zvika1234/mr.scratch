@@ -449,15 +449,6 @@ socket.on('vote:begin', ({ candidates, durationMs, deadline }) => {
     });
     if (c.id === State.myId) btn.disabled = true;
     li.appendChild(btn);
-    // Host can kick any other player during voting.
-    if (isHost() && c.id !== State.myId) {
-      const kick = document.createElement('button');
-      kick.className = 'kick-btn';
-      kick.title = t('lobby.kickPlayer');
-      kick.textContent = '✕';
-      kick.addEventListener('click', () => socket.emit('player:kick', { targetId: c.id }));
-      li.appendChild(kick);
-    }
     list.appendChild(li);
   }
 });
@@ -467,8 +458,8 @@ socket.on('vote:tally', ({ voted, total }) => {
   $('#vote-status').textContent = t('vote.voted', { n: voted, total });
 });
 socket.on('vote:complete', () => {
-  // Server transitions to impostor_guess automatically; freeze UI + stop timer.
-  $$('#vote-list button').forEach((b) => (b.disabled = true));
+  // Server transitions to impostor_guess automatically; freeze vote buttons + stop timer.
+  $$('#vote-list .vote-btn').forEach((b) => (b.disabled = true));
   stopTimerBar('#vote-timer-fill');
 });
 
