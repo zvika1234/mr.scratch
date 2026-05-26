@@ -423,15 +423,12 @@ socket.on('draw:stroke', (stroke) => {
 });
 
 // ---------- Voting ----------
-socket.on('vote:begin', ({ candidates, durationMs, deadline }) => {
-  showScreen('screen-vote');
-  SoundFX.play('vote');
-  SoundFX.vibrate([150, 50, 150]);
+function renderVoteScreen(candidates, durationMs, deadline, voted, total) {
   State.myVote = null;
   const list = $('#vote-list');
   list.innerHTML = '';
-  $('#vote-status').textContent = '';
-  // Start the countdown bar (server sends deadline + durationMs).
+  $('#vote-status').textContent = (voted != null && total != null)
+    ? t('vote.voted', { n: voted, total }) : '';
   if (deadline && durationMs) startTimerBar('#vote-timer-fill', deadline, durationMs);
   for (const c of candidates) {
     const li = document.createElement('li');
@@ -451,6 +448,13 @@ socket.on('vote:begin', ({ candidates, durationMs, deadline }) => {
     li.appendChild(btn);
     list.appendChild(li);
   }
+}
+
+socket.on('vote:begin', ({ candidates, durationMs, deadline }) => {
+  showScreen('screen-vote');
+  SoundFX.play('vote');
+  SoundFX.vibrate([150, 50, 150]);
+  renderVoteScreen(candidates, durationMs, deadline);
 });
 // Live tally: only show "N/total voted" count, NOT per-candidate breakdown
 // (that would bias the vote). Per-candidate counts appear on the results screen.
@@ -464,11 +468,8 @@ socket.on('vote:complete', () => {
 });
 
 // ---------- Impostor guess ----------
-socket.on('guess:begin', ({ impostorId, durationMs, deadline }) => {
-  showScreen('screen-guess');
+function renderGuessScreen(impostorId, durationMs, deadline) {
   State.guessDeadline = deadline;
-  // Trust State.isImpostor (set on role:assigned) over re-deriving here —
-  // socket id can drift across reconnects but isImpostor stays correct.
   const iAmImpostor = State.isImpostor || State.myId === impostorId;
   $('#guess-form').hidden = !iAmImpostor;
   $('#guess-waiting').hidden = iAmImpostor;
@@ -476,10 +477,14 @@ socket.on('guess:begin', ({ impostorId, durationMs, deadline }) => {
   $('#guess-input').disabled = false;
   $('#btn-submit-guess').disabled = false;
   if (iAmImpostor) {
-    // Defer focus a tick to avoid screen-switch blur on mobile.
     setTimeout(() => $('#guess-input').focus(), 50);
   }
   startTimerBar('#guess-timer-fill', deadline, durationMs);
+}
+
+socket.on('guess:begin', ({ impostorId, durationMs, deadline }) => {
+  showScreen('screen-guess');
+  renderGuessScreen(impostorId, durationMs, deadline);
 });
 
 $('#btn-submit-guess').addEventListener('click', submitGuess);
@@ -498,22 +503,22 @@ function submitGuess() {
 }
 
 // ---------- Results ----------
-socket.on('round:result', (data) => {
-  showScreen('screen-results');
+function renderResultsScreen(data, playSounds) {
   stopTimerBar('#guess-timer-fill');
-  // Sound + haptic for round/match outcome.
-  if (data.matchOver && data.winnerId === State.myId) {
-    SoundFX.play('win');
-    SoundFX.vibrate([300, 100, 300, 100, 600]);
-  } else if (data.impostorCaught) {
-    SoundFX.play('caught');
-    SoundFX.vibrate([200, 100, 200, 100, 400]);
-  } else {
-    SoundFX.play('escaped');
-    SoundFX.vibrate([400, 100, 400]);
+  if (playSounds) {
+    if (data.matchOver && data.winnerId === State.myId) {
+      SoundFX.play('win');
+      SoundFX.vibrate([300, 100, 300, 100, 600]);
+    } else if (data.impostorCaught) {
+      SoundFX.play('caught');
+      SoundFX.vibrate([200, 100, 200, 100, 400]);
+    } else {
+      SoundFX.play('escaped');
+      SoundFX.vibrate([400, 100, 400]);
+    }
   }
 
-  const everyone = [...State.snapshot.players, ...State.snapshot.bots];
+  const everyone = State.snapshot ? [...State.snapshot.players, ...State.snapshot.bots] : [];
   const findPlayer = (id) => everyone.find((x) => x.id === id) || { name: '???', avatar: '' };
   const findName   = (id) => findPlayer(id).name;
   const findAvatar = (id) => findPlayer(id).avatar || '';
@@ -551,8 +556,8 @@ socket.on('round:result', (data) => {
   for (const r of voteRows) {
     const li = document.createElement('li');
     if (r.id === State.myId) li.classList.add('me');
-    const isImpostor = r.id === data.impostorId;
-    const impostorTag = isImpostor
+    const isImpostorP = r.id === data.impostorId;
+    const impostorTag = isImpostorP
       ? `<span class="impostor-tag">🕵️ ${t('game.role.impostor')}</span>`
       : '';
     const pips = r.n > 0 ? '👤'.repeat(r.n) : '—';
@@ -600,6 +605,11 @@ socket.on('round:result', (data) => {
       nextBtn.hidden = false;
     }
   }
+}
+
+socket.on('round:result', (data) => {
+  showScreen('screen-results');
+  renderResultsScreen(data, /* playSounds */ true);
 });
 
 $('#btn-next-round').addEventListener('click', () => socket.emit('round:next'));
@@ -799,10 +809,29 @@ function attemptReconnect(code) {
           startCanvasClock(resp.turn.deadline, resp.turn.durationMs);
         }
         break;
-      case 'voting':        showScreen('screen-vote'); break;
-      case 'impostor_guess':showScreen('screen-guess'); break;
+      case 'voting':
+        showScreen('screen-vote');
+        if (resp.voteResume) {
+          renderVoteScreen(
+            resp.voteResume.candidates,
+            resp.voteResume.durationMs,
+            resp.voteResume.deadline,
+            resp.voteResume.voted,
+            resp.voteResume.total,
+          );
+        }
+        break;
+      case 'impostor_guess':
+        showScreen('screen-guess');
+        if (resp.guessResume) {
+          renderGuessScreen(resp.guessResume.impostorId, resp.guessResume.durationMs, resp.guessResume.deadline);
+        }
+        break;
       case 'round_results':
-      case 'match_end':     showScreen('screen-results'); break;
+      case 'match_end':
+        showScreen('screen-results');
+        if (resp.resultResume) renderResultsScreen(resp.resultResume, /* playSounds */ false);
+        break;
       default: enterLobby();
     }
     renderScoreboard(resp.snapshot);

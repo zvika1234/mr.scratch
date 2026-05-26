@@ -206,9 +206,12 @@ function enterVoting(room) {
   room.state = 'voting';
   room.votes = {};
   room.voteDeadline = Date.now() + VOTE_MS;
+  room.voteDurationMs = VOTE_MS;
+  // Snapshot candidates so reconnecting players can get the full list.
+  room.voteCandidates = allParticipants(room).map(({ id, name, avatar, isBot }) => ({ id, name, avatar: avatar || '', isBot }));
 
   emitRoom(room, 'vote:begin', {
-    candidates: allParticipants(room).map(({ id, name, avatar, isBot }) => ({ id, name, avatar: avatar || '', isBot })),
+    candidates: room.voteCandidates,
     durationMs: VOTE_MS,
     deadline: room.voteDeadline,
   });
@@ -315,12 +318,16 @@ function enterImpostorGuess(room) {
   room.state = 'impostor_guess';
   const impostor = allParticipants(room).find((p) => p.id === room.impostorId);
 
+  // Store deadline so reconnecting clients can resume the timer.
+  room.guessDeadline = Date.now() + IMPOSTOR_GUESS_MS;
+  room.guessDurationMs = IMPOSTOR_GUESS_MS;
+
   // Impostor (human or bot) always gets a chance.
   emitRoom(room, 'guess:begin', {
     impostorId: room.impostorId,
     impostorName: impostor ? impostor.name : 'Impostor',
     durationMs: IMPOSTOR_GUESS_MS,
-    deadline: Date.now() + IMPOSTOR_GUESS_MS,
+    deadline: room.guessDeadline,
   });
 
   // Snapshot the impostor id at the time the timer is set, so a delayed callback
@@ -452,8 +459,8 @@ function emitRoundResults(room) {
   const winnerEntry = Object.entries(room.scores).find(([, s]) => s >= WIN_SCORE);
   if (winnerEntry) {
     room.state = 'match_end';
-    emitRoom(room, 'round:result', {
-      scores: room.scores,
+    const payload = {
+      scores: { ...room.scores },
       impostorId: room.impostorId,
       word: room.word,
       category: room.categoryKey,
@@ -463,14 +470,16 @@ function emitRoundResults(room) {
       voteCounts: room.voteCounts,
       matchOver: true,
       winnerId: winnerEntry[0],
-    });
+    };
+    room.lastRoundResult = payload; // persisted for reconnecting players
+    emitRoom(room, 'round:result', payload);
     broadcastSnapshot(room);
     return;
   }
 
   room.state = 'round_results';
-  emitRoom(room, 'round:result', {
-    scores: room.scores,
+  const payload = {
+    scores: { ...room.scores },
     impostorId: room.impostorId,
     word: room.word,
     category: room.categoryKey,
@@ -479,7 +488,9 @@ function emitRoundResults(room) {
     impostorGuessCorrect: room.impostorGuessCorrect,
     voteCounts: room.voteCounts,
     matchOver: false,
-  });
+  };
+  room.lastRoundResult = payload; // persisted for reconnecting players
+  emitRoom(room, 'round:result', payload);
   broadcastSnapshot(room);
 }
 
@@ -500,10 +511,14 @@ function nextRound(room) {
   room.canvasOps = [];
   room.votes = {};
   room.voteCounts = null;
+  room.voteCandidates = null;
+  room.voteDeadline = null;
   room.accusedId = null;
   room.impostorCaught = false;
   room.impostorGuess = null;
   room.impostorGuessCorrect = false;
+  room.guessDeadline = null;
+  room.lastRoundResult = null;
   room.state = 'lobby'; // briefly, before startGame flips it
   startGame(room);
 }
@@ -514,6 +529,11 @@ function newMatch(room) {
   if (room.voteTimer) { clearTimeout(room.voteTimer); room.voteTimer = null; }
   if (room.impostorGuessTimer) { clearTimeout(room.impostorGuessTimer); room.impostorGuessTimer = null; }
   for (const id of Object.keys(room.scores)) room.scores[id] = 0;
+  room.votes = {};
+  room.voteCandidates = null;
+  room.voteDeadline = null;
+  room.guessDeadline = null;
+  room.lastRoundResult = null;
   room.state = 'lobby';
   broadcastSnapshot(room);
   emitRoom(room, 'match:reset', {});

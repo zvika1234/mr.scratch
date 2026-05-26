@@ -128,6 +128,37 @@ io.on('connection', (socket) => {
       }
     }
 
+    // Voting: send candidates + remaining deadline so the client can rebuild the screen.
+    if (room.state === 'voting' && room.voteCandidates && room.voteDeadline) {
+      const remaining = room.voteDeadline - Date.now();
+      if (remaining > 0) {
+        resume.voteResume = {
+          candidates: room.voteCandidates,
+          durationMs: room.voteDurationMs || 30000,
+          deadline: room.voteDeadline,
+          voted: Object.keys(room.votes).length,
+          total: rooms.allParticipants(room).length,
+        };
+      }
+    }
+
+    // Impostor guess: send the deadline so the client can resume the timer.
+    if (room.state === 'impostor_guess' && room.guessDeadline) {
+      const remaining = room.guessDeadline - Date.now();
+      if (remaining > 0) {
+        resume.guessResume = {
+          impostorId: room.impostorId,
+          durationMs: room.guessDurationMs || 15000,
+          deadline: room.guessDeadline,
+        };
+      }
+    }
+
+    // Results / match-end: replay the last round result payload.
+    if ((room.state === 'round_results' || room.state === 'match_end') && room.lastRoundResult) {
+      resume.resultResume = room.lastRoundResult;
+    }
+
     cb && cb(resume);
     game.broadcastSnapshot(room);
   });
