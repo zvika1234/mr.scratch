@@ -135,6 +135,14 @@ function replaceSocketId(room, oldId, newId) {
     }
     room.votes = newVotes;
   }
+  // Vote counts: keys are target player ids.
+  if (room.voteCounts && typeof room.voteCounts === 'object') {
+    const newCounts = {};
+    for (const [target, count] of Object.entries(room.voteCounts)) {
+      newCounts[target === oldId ? newId : target] = count;
+    }
+    room.voteCounts = newCounts;
+  }
 }
 
 // Permanently remove a player and all their references (after disconnect timer expires).

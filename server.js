@@ -155,8 +155,15 @@ io.on('connection', (socket) => {
     }
 
     // Results / match-end: replay the last round result payload.
+    // Patch in the live copies of any socket-id-keyed fields so they reflect
+    // any replaceSocketId migrations that happened since the result was stored.
     if ((room.state === 'round_results' || room.state === 'match_end') && room.lastRoundResult) {
-      resume.resultResume = room.lastRoundResult;
+      resume.resultResume = {
+        ...room.lastRoundResult,
+        scores: { ...room.scores },
+        impostorId: room.impostorId,
+        voteCounts: room.voteCounts ? { ...room.voteCounts } : {},
+      };
     }
 
     cb && cb(resume);
