@@ -387,6 +387,14 @@ button:disabled { opacity: .45; cursor: not-allowed; pointer-events: auto; }
 .small { font-size: .85rem; }
 
 /* ---------- Lobby ---------- */
+.badge-public {
+  background: linear-gradient(135deg, #10b981, #34d399);
+  color: #0d0d1a;
+  font-size: .72rem; font-weight: 700;
+  padding: 3px 10px; border-radius: var(--radius-pill);
+  letter-spacing: .2px;
+}
+
 .room-code-row {
   display: flex; align-items: center; flex-wrap: wrap;
   gap: 10px; margin: 6px 0 20px;
@@ -787,16 +795,16 @@ body:has(#screen-home.active) {
   justify-content: center;
 }
 
-/* Two create buttons side-by-side, wrap gracefully on small screens */
-.create-row {
+/* Back row at top of public screen */
+.screen-back-row {
   display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  justify-content: center;
-  margin-block: 12px;
+  align-items: center;
+  gap: 12px;
 }
-.create-row button {
-  flex: 1 1 180px;
+.screen-back-row .icon-btn {
+  font-size: 1.3rem;
+  width: 36px;
+  height: 36px;
 }
 
 #screen-home .hero .rules {

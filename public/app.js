@@ -173,20 +173,6 @@ $('#btn-create').addEventListener('click', () => {
   });
 });
 
-$('#btn-create-public').addEventListener('click', () => {
-  const name = getMyName();
-  if (!name) return toast(t('toast.needName'));
-  socket.emit('room:create', { name, lang: 'en', clientId: CLIENT_ID, isPublic: true }, (resp) => {
-    if (!resp || !resp.ok) return toast('Could not create room');
-    State.myId = resp.you;
-    State.roomCode = resp.code;
-    State.snapshot = resp.snapshot;
-    setActiveRoom(resp.code);
-    socket.emit('public:unbrowse');
-    enterLobby();
-  });
-});
-
 $('#btn-join').addEventListener('click', () => {
   joinFlow();
 });
@@ -202,7 +188,43 @@ function joinFlow() {
   socket.emit('room:join', { name, code, clientId: CLIENT_ID }, handleJoinResponse);
 }
 
-// ---------- Public rooms browser ----------
+// ---------- Public rooms screen ----------
+$('#btn-browse-public').addEventListener('click', () => {
+  enterPublicScreen();
+});
+
+$('#btn-back-public').addEventListener('click', () => {
+  socket.emit('public:unbrowse');
+  showScreen('screen-home');
+  updateHomeButtonVisibility();
+});
+
+$('#btn-create-public').addEventListener('click', () => {
+  const name = getMyName();
+  if (!name) {
+    // Show name prompt on the public screen context
+    showScreen('screen-home');
+    toast(t('toast.needName'));
+    $('#home-name').focus();
+    return;
+  }
+  socket.emit('room:create', { name, lang: 'en', clientId: CLIENT_ID, isPublic: true }, (resp) => {
+    if (!resp || !resp.ok) return toast('Could not create room');
+    State.myId = resp.you;
+    State.roomCode = resp.code;
+    State.snapshot = resp.snapshot;
+    setActiveRoom(resp.code);
+    socket.emit('public:unbrowse');
+    enterLobby();
+  });
+});
+
+function enterPublicScreen() {
+  showScreen('screen-public');
+  socket.emit('public:browse');
+  updateHomeButtonVisibility();
+}
+
 socket.on('public:update', (list) => {
   renderPublicRooms(list);
 });
@@ -224,11 +246,16 @@ function renderPublicRooms(list) {
       `<span class="${countClass}">${r.playerCount}/5</span>` +
       `<span class="pr-meta">${catLabel} ${langFlag}</span>`;
     const btn = document.createElement('button');
-    btn.className = 'secondary small';
+    btn.className = 'primary small';
     btn.textContent = t('home.join');
     btn.addEventListener('click', () => {
       const name = getMyName();
-      if (!name) return toast(t('toast.needName'));
+      if (!name) {
+        showScreen('screen-home');
+        toast(t('toast.needName'));
+        $('#home-name').focus();
+        return;
+      }
       socket.emit('room:join', { code: r.code, name, clientId: CLIENT_ID }, handleJoinResponse);
     });
     li.appendChild(btn);
@@ -253,6 +280,20 @@ function renderLobby() {
   if (!State.snapshot) return;
   const snap = State.snapshot;
   $('#lobby-code').textContent = snap.code;
+  // Show/hide the public badge next to the room code.
+  let publicBadge = $('#lobby-public-badge');
+  if (snap.isPublic) {
+    if (!publicBadge) {
+      publicBadge = document.createElement('span');
+      publicBadge.id = 'lobby-public-badge';
+      publicBadge.className = 'badge badge-public';
+      publicBadge.textContent = t('lobby.publicBadge');
+      $('#lobby-code').insertAdjacentElement('afterend', publicBadge);
+    }
+    publicBadge.hidden = false;
+  } else if (publicBadge) {
+    publicBadge.hidden = true;
+  }
 
   const list = $('#lobby-players');
   list.innerHTML = '';
@@ -803,9 +844,9 @@ socket.on('connect', () => {
   const code = State.roomCode || getActiveRoom();
   if (code) {
     attemptReconnect(code);
-  } else {
-    // No active room — subscribe to the public rooms list so the home screen
-    // shows live open rooms immediately.
+  }
+  // If the public screen is currently visible, re-subscribe after reconnect.
+  if (document.querySelector('#screen-public.active')) {
     socket.emit('public:browse');
   }
 });
@@ -904,8 +945,10 @@ function attemptReconnect(code) {
 function updateHomeButtonVisibility() {
   const btn = $('#home-btn');
   if (!btn) return;
-  // Visible whenever we're in a room (any state other than home).
-  btn.hidden = !State.roomCode;
+  // Visible when in a room. Hidden on home screen AND public screen
+  // (public screen has its own ← back button).
+  const onPublic = !!document.querySelector('#screen-public.active');
+  btn.hidden = !State.roomCode || onPublic;
 }
 $('#home-btn').addEventListener('click', () => {
   const inGame = State.snapshot && State.snapshot.state && State.snapshot.state !== 'lobby';

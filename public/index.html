@@ -65,14 +65,10 @@
           <input id="home-name" type="text" maxlength="20" autocomplete="off" />
         </label>
 
-        <div class="create-row">
+        <div class="row" style="justify-content:center">
           <button id="btn-create" class="primary cta" type="button">
-            <span style="margin-inline-end:6px">🔒</span>
+            <span style="margin-inline-end:6px">🎨</span>
             <span data-i18n="home.create">Create Private Room</span>
-          </button>
-          <button id="btn-create-public" class="secondary cta" type="button">
-            <span style="margin-inline-end:6px">🌍</span>
-            <span data-i18n="home.createPublic">Create Public Room</span>
           </button>
         </div>
 
@@ -86,10 +82,14 @@
           </button>
         </div>
 
-        <div class="divider" data-i18n="home.browseRooms">Open rooms</div>
-        <ul id="public-rooms-list" class="public-rooms-list"></ul>
-        <p id="public-rooms-empty" class="muted small" style="text-align:center;margin:4px 0 10px"
-           data-i18n="home.noPublicRooms">No open rooms right now.</p>
+        <div class="divider" data-i18n="home.or">or</div>
+
+        <div class="row" style="justify-content:center">
+          <button id="btn-browse-public" class="ghost cta" type="button">
+            <span style="margin-inline-end:6px">🌍</span>
+            <span data-i18n="home.browsePublic">Public Rooms</span>
+          </button>
+        </div>
 
         <details class="rules">
           <summary data-i18n="home.rulesTitle">📖 How to play</summary>
@@ -104,6 +104,31 @@
             <li data-i18n="home.rule8">First to 6 points wins the match.</li>
           </ol>
         </details>
+
+      </div>
+    </section>
+
+    <!-- ==================== PUBLIC ROOMS ==================== -->
+    <section class="screen" id="screen-public">
+      <div class="card" style="max-width:560px;margin-inline:auto">
+
+        <div class="screen-back-row">
+          <button id="btn-back-public" class="ghost icon-btn" type="button" aria-label="Back">←</button>
+          <h2 style="margin:0">🌍 <span data-i18n="home.browsePublic">Public Rooms</span></h2>
+        </div>
+
+        <div class="row" style="justify-content:center;margin-top:14px">
+          <button id="btn-create-public" class="primary" type="button">
+            <span style="margin-inline-end:6px">➕</span>
+            <span data-i18n="home.createPublic">Create Public Room</span>
+          </button>
+        </div>
+
+        <div class="divider" data-i18n="home.availableRooms">Available rooms</div>
+
+        <ul id="public-rooms-list" class="public-rooms-list"></ul>
+        <p id="public-rooms-empty" class="muted small" style="text-align:center;margin:8px 0 4px"
+           data-i18n="home.noPublicRooms">No open rooms right now. Be the first!</p>
 
       </div>
     </section>

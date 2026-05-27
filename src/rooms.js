@@ -210,6 +210,7 @@ function publicSnapshot(room) {
   return {
     code: room.code,
     hostId: room.hostId,
+    isPublic: room.isPublic || false,
     players: room.players.map(({ id, name, avatar, isHost, connected }) => ({
       id,
       name,
