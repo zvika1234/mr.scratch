@@ -1274,10 +1274,20 @@ body:has(#screen-home.active) {
   #screen-game .game-grid {
     grid-template-columns: 1fr;
     align-items: start;
+    /* Undo desktop height-filling — mobile scrolls instead */
+    flex: none;
+    min-height: unset;
+    height: auto;
   }
   /* On mobile use simple width-based 4:3 */
   #screen-game .canvas-area {
     container-type: unset;
+    /* Natural content height — no centering or size-containment tricks */
+    flex: none;
+    min-height: unset;
+    height: auto;
+    justify-content: flex-start;
+    overflow: visible;
   }
   #screen-game .canvas-wrap {
     width: 100%;
@@ -1287,6 +1297,17 @@ body:has(#screen-home.active) {
   #screen-game #board {
     width: 100%;
     height: 100%;
+  }
+  /* Sidebar: let cards show at natural height, no clipping */
+  #screen-game .sidebar {
+    overflow: visible;
+    min-height: unset;
+    flex: none;
+  }
+  #screen-game .sidebar > .card {
+    flex: none;
+    overflow: visible;
+    min-height: unset;
   }
   #screen-game .drawing-indicator { width: 100%; }
 }
