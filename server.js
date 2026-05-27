@@ -10,6 +10,12 @@ const rooms = require('./src/rooms');
 const game = require('./src/game');
 const { CATEGORY_KEYS } = require('./src/words');
 
+// Broadcast the current public lobby list to everyone watching the home screen.
+// Called whenever any public room changes (created, player joins/leaves, game starts).
+function broadcastPublicList() {
+  io.to('public-lobby').emit('public:update', rooms.getPublicLobbies());
+}
+
 const PORT = process.env.PORT || 3000;
 
 const app = express();
@@ -47,16 +53,29 @@ function getRoomForSocket(socket) {
 // Socket handlers ------------------------------------------------------------
 
 io.on('connection', (socket) => {
+  // --- Public room browser ---
+  // Client joins the broadcast channel to receive live list updates.
+  socket.on('public:browse', () => {
+    socket.join('public-lobby');
+    socket.emit('public:update', rooms.getPublicLobbies());
+  });
+  socket.on('public:unbrowse', () => {
+    socket.leave('public-lobby');
+  });
+
   // --- Room create / join ---
 
-  socket.on('room:create', ({ name, lang, clientId }, cb) => {
+  socket.on('room:create', ({ name, lang, clientId, isPublic }, cb) => {
     const safeName = sanitizeName(name);
-    const room = rooms.createRoom(socket.id, safeName, lang, clientId);
+    const room = rooms.createRoom(socket.id, safeName, lang, clientId, isPublic === true);
     socket.join(room.code);
     socket.data.roomCode = room.code;
     socket.data.clientId = clientId;
+    // Leave the public-lobby broadcast channel — creator is now in a game room.
+    socket.leave('public-lobby');
     cb && cb({ ok: true, code: room.code, you: socket.id, snapshot: rooms.publicSnapshot(room) });
     game.broadcastSnapshot(room);
+    if (room.isPublic) broadcastPublicList();
   });
 
   socket.on('room:join', ({ code, name, clientId }, cb) => {
@@ -68,8 +87,11 @@ io.on('connection', (socket) => {
     socket.join(room.code);
     socket.data.roomCode = room.code;
     socket.data.clientId = clientId;
+    // Leave the public-lobby broadcast channel — joiner is now in a game room.
+    socket.leave('public-lobby');
     cb && cb({ ok: true, code: room.code, you: socket.id, snapshot: rooms.publicSnapshot(room) });
     game.broadcastSnapshot(room);
+    if (room.isPublic) broadcastPublicList();
   });
 
   // Reconnect: client comes back with the same clientId and the room code
@@ -227,6 +249,8 @@ io.on('connection', (socket) => {
     const r = game.startGame(room);
     console.log(`[game:start] room ${room.code} picked categoryKey=${room.categoryKey} word=${room.word}`);
     cb && cb(r);
+    // Game started — remove from public browser if it was public.
+    if (room.isPublic) broadcastPublicList();
   });
 
   socket.on('draw:stroke', (stroke) => {
@@ -316,12 +340,15 @@ function handleDisconnect(socket) {
     if (!current) return;
     const stillThere = current.players.find((p) => p.id === socket.id || p.clientId === player.clientId);
     if (stillThere && stillThere.connected) return; // they came back
+    const wasPublic = current.isPublic;
     rooms.purgePlayer(current, stillThere ? stillThere.id : socket.id);
     if (current.players.length === 0) {
       rooms.deleteRoom(current.code);
+      if (wasPublic) broadcastPublicList();
       return;
     }
     game.broadcastSnapshot(current);
+    if (wasPublic && current.state === 'lobby') broadcastPublicList();
   }, RECONNECT_GRACE_MS);
 
   game.broadcastSnapshot(room);
@@ -334,6 +361,7 @@ function handleLeave(socket) {
   const room = rooms.getRoom(code);
   if (!room) return;
 
+  const wasPublic = room.isPublic;
   const player = room.players.find((p) => p.id === socket.id);
   if (player && player.disconnectTimer) clearTimeout(player.disconnectTimer);
 
@@ -354,9 +382,11 @@ function handleLeave(socket) {
 
   if (room.players.length === 0) {
     rooms.deleteRoom(room.code);
+    if (wasPublic) broadcastPublicList();
     return;
   }
   game.broadcastSnapshot(room);
+  if (wasPublic && room.state === 'lobby') broadcastPublicList();
 }
 
 function sanitizeName(name) {

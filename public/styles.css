@@ -776,6 +776,7 @@ body:has(#screen-home.active) {
 #screen-home .hero .field,
 #screen-home .hero .join-row,
 #screen-home .hero .row,
+#screen-home .hero .create-row,
 #screen-home .hero .divider {
   width: 100%;
   max-width: 420px;
@@ -786,11 +787,73 @@ body:has(#screen-home.active) {
   justify-content: center;
 }
 
+/* Two create buttons side-by-side, wrap gracefully on small screens */
+.create-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-block: 12px;
+}
+.create-row button {
+  flex: 1 1 180px;
+}
+
 #screen-home .hero .rules {
   width: 100%;
   max-width: 480px;
   margin-inline: auto;
   text-align: start;
+}
+
+/* ---------- Public rooms list ---------- */
+.public-rooms-list {
+  list-style: none;
+  padding: 0;
+  margin: 4px 0 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  max-width: 480px;
+  margin-inline: auto;
+}
+.public-room-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  flex-wrap: wrap;
+}
+.public-room-card .pr-host {
+  font-weight: 600;
+  flex: 1;
+  min-width: 80px;
+}
+.public-room-card .pr-count {
+  font-size: .82rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+  background: var(--glass-hi);
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  white-space: nowrap;
+}
+.public-room-card .pr-count.almost-full {
+  color: var(--accent);
+}
+.public-room-card .pr-meta {
+  font-size: .82rem;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+.public-room-card button.small {
+  padding: 5px 14px;
+  font-size: .85rem;
+  min-height: unset;
 }
 
 /* Title & tagline breathing room */

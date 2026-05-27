@@ -102,6 +102,9 @@ const I18N = {
     'toast.connectionLost': 'Connection lost. Trying to reconnect…',
     'toast.youWereKicked': 'You were removed by the host',
     'home.leaveConfirm': 'Leave the current game?',
+    'home.createPublic': 'Create Public Room',
+    'home.browseRooms': 'Open rooms',
+    'home.noPublicRooms': 'No open rooms right now.',
   },
 
   he: {
@@ -203,6 +206,9 @@ const I18N = {
     'toast.connectionLost': 'החיבור אבד. מנסה להתחבר מחדש…',
     'toast.youWereKicked': 'הוצאת מהחדר על ידי המנהל',
     'home.leaveConfirm': 'לעזוב את המשחק הנוכחי?',
+    'home.createPublic': 'צור חדר ציבורי',
+    'home.browseRooms': 'חדרים פתוחים',
+    'home.noPublicRooms': 'אין חדרים פתוחים כרגע.',
   },
 };
 

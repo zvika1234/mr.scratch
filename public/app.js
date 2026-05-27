@@ -142,15 +142,47 @@ document.addEventListener('lang:changed', () => {
 });
 
 // ---------- Home screen ----------
+function handleJoinResponse(resp) {
+  if (!resp || !resp.ok) {
+    const map = {
+      room_not_found: 'toast.roomNotFound',
+      room_full: 'toast.roomFull',
+      game_in_progress: 'toast.gameInProgress',
+    };
+    return toast(t(map[resp && resp.error] || 'toast.roomNotFound'));
+  }
+  State.myId = resp.you;
+  State.roomCode = resp.code;
+  State.snapshot = resp.snapshot;
+  setActiveRoom(resp.code);
+  socket.emit('public:unbrowse'); // leave the broadcast channel
+  enterLobby();
+}
+
 $('#btn-create').addEventListener('click', () => {
   const name = getMyName();
   if (!name) return toast(t('toast.needName'));
-  socket.emit('room:create', { name, lang: 'en', clientId: CLIENT_ID }, (resp) => {
+  socket.emit('room:create', { name, lang: 'en', clientId: CLIENT_ID, isPublic: false }, (resp) => {
     if (!resp || !resp.ok) return toast('Could not create room');
     State.myId = resp.you;
     State.roomCode = resp.code;
     State.snapshot = resp.snapshot;
     setActiveRoom(resp.code);
+    socket.emit('public:unbrowse');
+    enterLobby();
+  });
+});
+
+$('#btn-create-public').addEventListener('click', () => {
+  const name = getMyName();
+  if (!name) return toast(t('toast.needName'));
+  socket.emit('room:create', { name, lang: 'en', clientId: CLIENT_ID, isPublic: true }, (resp) => {
+    if (!resp || !resp.ok) return toast('Could not create room');
+    State.myId = resp.you;
+    State.roomCode = resp.code;
+    State.snapshot = resp.snapshot;
+    setActiveRoom(resp.code);
+    socket.emit('public:unbrowse');
     enterLobby();
   });
 });
@@ -167,21 +199,41 @@ function joinFlow() {
   const code = $('#home-code').value.trim().toUpperCase();
   if (!name) return toast(t('toast.needName'));
   if (!code) return toast(t('toast.needCode'));
-  socket.emit('room:join', { name, code, clientId: CLIENT_ID }, (resp) => {
-    if (!resp || !resp.ok) {
-      const map = {
-        room_not_found: 'toast.roomNotFound',
-        room_full: 'toast.roomFull',
-        game_in_progress: 'toast.gameInProgress',
-      };
-      return toast(t(map[resp && resp.error] || 'toast.roomNotFound'));
-    }
-    State.myId = resp.you;
-    State.roomCode = resp.code;
-    State.snapshot = resp.snapshot;
-    setActiveRoom(resp.code);
-    enterLobby();
-  });
+  socket.emit('room:join', { name, code, clientId: CLIENT_ID }, handleJoinResponse);
+}
+
+// ---------- Public rooms browser ----------
+socket.on('public:update', (list) => {
+  renderPublicRooms(list);
+});
+
+function renderPublicRooms(list) {
+  const ul = $('#public-rooms-list');
+  const empty = $('#public-rooms-empty');
+  if (!ul) return;
+  ul.innerHTML = '';
+  empty.hidden = list.length > 0;
+  for (const r of list) {
+    const li = document.createElement('li');
+    li.className = 'public-room-card';
+    const langFlag = r.lang === 'he' ? '🇮🇱' : '🇺🇸';
+    const catLabel = t('cat.' + r.category);
+    const countClass = r.playerCount >= 4 ? 'pr-count almost-full' : 'pr-count';
+    li.innerHTML =
+      `<span class="pr-host">${r.hostAvatar} ${escapeHtml(r.hostName)}</span>` +
+      `<span class="${countClass}">${r.playerCount}/5</span>` +
+      `<span class="pr-meta">${catLabel} ${langFlag}</span>`;
+    const btn = document.createElement('button');
+    btn.className = 'secondary small';
+    btn.textContent = t('home.join');
+    btn.addEventListener('click', () => {
+      const name = getMyName();
+      if (!name) return toast(t('toast.needName'));
+      socket.emit('room:join', { code: r.code, name, clientId: CLIENT_ID }, handleJoinResponse);
+    });
+    li.appendChild(btn);
+    ul.appendChild(li);
+  }
 }
 
 // Auto-fill room code from ?room=XXXX
@@ -632,6 +684,7 @@ socket.on('you:kicked', () => {
   if (typeof Board !== 'undefined') Board.clear();
   showScreen('screen-home');
   updateHomeButtonVisibility();
+  socket.emit('public:browse'); // re-subscribe to live list
   toast(t('toast.youWereKicked'), 4000);
 });
 
@@ -748,8 +801,13 @@ socket.on('disconnect', () => {
 // to restore the player in their room using the stable clientId.
 socket.on('connect', () => {
   const code = State.roomCode || getActiveRoom();
-  if (!code) return;
-  attemptReconnect(code);
+  if (code) {
+    attemptReconnect(code);
+  } else {
+    // No active room — subscribe to the public rooms list so the home screen
+    // shows live open rooms immediately.
+    socket.emit('public:browse');
+  }
 });
 
 function attemptReconnect(code) {
@@ -867,6 +925,7 @@ $('#home-btn').addEventListener('click', () => {
   Board.clear();
   showScreen('screen-home');
   updateHomeButtonVisibility();
+  socket.emit('public:browse'); // re-subscribe to live list
 });
 
 // Initial sync (e.g. fresh load with no active room).

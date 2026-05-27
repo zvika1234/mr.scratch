@@ -17,7 +17,7 @@ function pickAvatar(room) {
 
 const rooms = new Map();
 
-function createRoom(hostSocketId, hostName, lang, clientId) {
+function createRoom(hostSocketId, hostName, lang, clientId, isPublic) {
   let code;
   // Defensive: avoid the (astronomically unlikely) chance of code collision.
   do {
@@ -33,6 +33,7 @@ function createRoom(hostSocketId, hostName, lang, clientId) {
     lang: lang === 'he' ? 'he' : 'en',
     category: 'random',
     state: 'lobby',
+    isPublic: isPublic === true,
     scores: { [hostSocketId]: 0 },
 
     // Game runtime fields (populated on game:start):
@@ -227,6 +228,25 @@ function publicSnapshot(room) {
   };
 }
 
+// Returns a safe summary of every public room currently in the lobby state.
+// Used by the home-screen browser — never leaks word / impostorId.
+function getPublicLobbies() {
+  return [...rooms.values()]
+    .filter((r) => r.isPublic && r.state === 'lobby')
+    .map((r) => {
+      const host = r.players.find((p) => p.isHost);
+      return {
+        code: r.code,
+        hostName: host ? host.name : '?',
+        hostAvatar: host ? (host.avatar || '') : '',
+        playerCount: r.players.length + r.bots.length,
+        maxPlayers: 5,
+        category: r.category,
+        lang: r.lang,
+      };
+    });
+}
+
 module.exports = {
   createRoom,
   getRoom,
@@ -240,4 +260,5 @@ module.exports = {
   purgePlayer,
   allParticipants,
   publicSnapshot,
+  getPublicLobbies,
 };

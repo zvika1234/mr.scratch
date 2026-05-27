@@ -65,10 +65,14 @@
           <input id="home-name" type="text" maxlength="20" autocomplete="off" />
         </label>
 
-        <div class="row" style="justify-content:center">
+        <div class="create-row">
           <button id="btn-create" class="primary cta" type="button">
-            <span style="margin-inline-end:6px">🎨</span>
+            <span style="margin-inline-end:6px">🔒</span>
             <span data-i18n="home.create">Create Private Room</span>
+          </button>
+          <button id="btn-create-public" class="secondary cta" type="button">
+            <span style="margin-inline-end:6px">🌍</span>
+            <span data-i18n="home.createPublic">Create Public Room</span>
           </button>
         </div>
 
@@ -81,6 +85,11 @@
             <span data-i18n="home.join">Join Room</span>
           </button>
         </div>
+
+        <div class="divider" data-i18n="home.browseRooms">Open rooms</div>
+        <ul id="public-rooms-list" class="public-rooms-list"></ul>
+        <p id="public-rooms-empty" class="muted small" style="text-align:center;margin:4px 0 10px"
+           data-i18n="home.noPublicRooms">No open rooms right now.</p>
 
         <details class="rules">
           <summary data-i18n="home.rulesTitle">📖 How to play</summary>
