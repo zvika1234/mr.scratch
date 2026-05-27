@@ -199,6 +199,16 @@ $('#btn-back-public').addEventListener('click', () => {
   updateHomeButtonVisibility();
 });
 
+$('#btn-back-lobby').addEventListener('click', () => {
+  socket.emit('room:leave');
+  setActiveRoom(null);
+  State.myId = null;
+  State.roomCode = null;
+  State.snapshot = null;
+  showScreen('screen-home');
+  updateHomeButtonVisibility();
+});
+
 $('#btn-create-public').addEventListener('click', () => {
   const name = getMyName();
   if (!name) {
