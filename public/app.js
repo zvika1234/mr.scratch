@@ -457,6 +457,8 @@ socket.on('turn:announce', ({ playerId, playerName, playerAvatar, round, totalRo
   // Sound + haptic feedback for turn start.
   SoundFX.play(isMyTurn ? 'yourTurn' : 'theirTurn');
   if (isMyTurn) SoundFX.vibrate([200, 80, 200]);
+  // Update the persistent "now drawing" strip (stays visible for the full turn).
+  updateDrawingIndicator(playerId, playerName, playerAvatar);
   showTurnAnnouncement({ playerName, playerAvatar, isMyTurn, round, totalRounds, durationMs });
 });
 
@@ -473,11 +475,16 @@ socket.on('turn:start', ({ playerId, playerName, round, totalRounds, deadline, d
   const isMyTurn = playerId === State.myId;
   Board.setEnabled(isMyTurn);
   startCanvasClock(deadline, durationMs);
+  // Refresh scoreboard so the active-drawer highlight appears immediately.
+  if (State.snapshot) renderScoreboard(State.snapshot);
 });
 
 socket.on('turn:end', () => {
   Board.setEnabled(false);
   stopCanvasClock();
+  State.currentTurnPlayerId = null;
+  updateDrawingIndicator(null);
+  if (State.snapshot) renderScoreboard(State.snapshot);
 });
 
 // ---------- Turn announcement overlay ----------
@@ -749,6 +756,7 @@ function renderScoreboard(snap) {
     const li = document.createElement('li');
     if (p.id === State.myId) li.classList.add('me');
     if (p.connected === false) li.classList.add('disconnected');
+    if (p.id === State.currentTurnPlayerId) li.classList.add('drawing');
     const score = snap.scores[p.id] ?? 0;
     const dot = p.connected === false ? '<span class="dc-dot" title="disconnected">⚠️</span>' : '';
     // Name on the left
@@ -836,6 +844,31 @@ function stopCanvasClock() {
   if (wrap) wrap.classList.remove('low');
 }
 
+// ---------- Drawing indicator ----------
+function getPlayerInfo(id) {
+  if (!State.snapshot) return { name: '?', avatar: '' };
+  const everyone = [...(State.snapshot.players || []), ...(State.snapshot.bots || [])];
+  const p = everyone.find((x) => x.id === id);
+  return p ? { name: p.name, avatar: p.avatar || '' } : { name: '?', avatar: '' };
+}
+
+function updateDrawingIndicator(playerId, playerName, playerAvatar) {
+  const el = $('#drawing-indicator');
+  if (!el) return;
+  if (!playerId) {
+    el.hidden = true;
+    el.classList.remove('is-me');
+    return;
+  }
+  const isMe = playerId === State.myId;
+  el.hidden = false;
+  el.classList.toggle('is-me', isMe);
+  const avatarPrefix = playerAvatar ? playerAvatar + ' ' : '';
+  el.textContent = isMe
+    ? '✏️  ' + t('game.yourTurn')
+    : '✏️  ' + avatarPrefix + t('game.turnOf', { name: playerName });
+}
+
 // ---------- Utilities ----------
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({
@@ -916,6 +949,9 @@ function attemptReconnect(code) {
           // resume the clock at the remaining time.
           hideTurnAnnouncement(true);
           startCanvasClock(resp.turn.deadline, resp.turn.durationMs);
+          // Restore the "now drawing" strip without the announce overlay.
+          const info = getPlayerInfo(resp.turn.playerId);
+          updateDrawingIndicator(resp.turn.playerId, info.name, info.avatar);
         }
         break;
       case 'voting':
