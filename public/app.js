@@ -205,6 +205,12 @@ $('#btn-back-lobby').addEventListener('click', () => {
   State.myId = null;
   State.roomCode = null;
   State.snapshot = null;
+  State.role = null;
+  State.word = null;
+  State.category = null;
+  State.isImpostor = false;
+  State.currentTurnPlayerId = null;
+  if (typeof Board !== 'undefined') Board.clear();
   showScreen('screen-home');
   updateHomeButtonVisibility();
 });
@@ -726,6 +732,14 @@ $('#btn-next-round').addEventListener('click', () => socket.emit('round:next'));
 $('#btn-new-match').addEventListener('click', () => socket.emit('match:new'));
 
 socket.on('match:reset', () => {
+  // Clear game-round state so stale role/impostor data from the finished
+  // match can't bleed into the lobby or the next game's UI.
+  State.role = null;
+  State.word = null;
+  State.category = null;
+  State.isImpostor = false;
+  State.currentTurnPlayerId = null;
+  if (typeof Board !== 'undefined') Board.clear();
   showScreen('screen-lobby');
 });
 
@@ -739,10 +753,10 @@ socket.on('room:timeout', () => {
   State.word = null;
   State.category = null;
   State.isImpostor = false;
+  State.currentTurnPlayerId = null;
   if (typeof Board !== 'undefined') Board.clear();
   showScreen('screen-home');
   updateHomeButtonVisibility();
-  socket.emit('public:browse');
   toast(t('toast.roomTimeout'), 5000);
 });
 
@@ -756,10 +770,10 @@ socket.on('you:kicked', () => {
   State.word = null;
   State.category = null;
   State.isImpostor = false;
+  State.currentTurnPlayerId = null;
   if (typeof Board !== 'undefined') Board.clear();
   showScreen('screen-home');
   updateHomeButtonVisibility();
-  socket.emit('public:browse'); // re-subscribe to live list
   toast(t('toast.youWereKicked'), 4000);
 });
 
@@ -1031,7 +1045,6 @@ $('#home-btn').addEventListener('click', () => {
   Board.clear();
   showScreen('screen-home');
   updateHomeButtonVisibility();
-  socket.emit('public:browse'); // re-subscribe to live list
 });
 
 // Initial sync (e.g. fresh load with no active room).

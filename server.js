@@ -125,6 +125,9 @@ io.on('connection', (socket) => {
     socket.join(room.code);
     socket.data.roomCode = room.code;
     socket.data.clientId = clientId;
+    // Reconnecting is clear evidence of activity — reset the idle clock so
+    // a nearly-expired room isn't killed minutes after a successful reconnect.
+    touchRoom(room);
 
     // Build a full resume payload so the client can jump straight back in.
     const resume = {
