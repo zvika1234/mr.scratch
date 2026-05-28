@@ -35,6 +35,7 @@ function createRoom(hostSocketId, hostName, lang, clientId, isPublic) {
     state: 'lobby',
     isPublic: isPublic === true,
     scores: { [hostSocketId]: 0 },
+    lastActivityAt: Date.now(),
 
     // Game runtime fields (populated on game:start):
     impostorId: null,
@@ -248,8 +249,13 @@ function getPublicLobbies() {
     });
 }
 
+function allRooms() {
+  return [...rooms.values()];
+}
+
 module.exports = {
   createRoom,
+  allRooms,
   getRoom,
   deleteRoom,
   findRoomBySocketId,

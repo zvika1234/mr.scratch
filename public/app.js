@@ -729,6 +729,23 @@ socket.on('match:reset', () => {
   showScreen('screen-lobby');
 });
 
+// Room was deleted by the server (idle timeout) — return to Home.
+socket.on('room:timeout', () => {
+  setActiveRoom(null);
+  State.myId = null;
+  State.roomCode = null;
+  State.snapshot = null;
+  State.role = null;
+  State.word = null;
+  State.category = null;
+  State.isImpostor = false;
+  if (typeof Board !== 'undefined') Board.clear();
+  showScreen('screen-home');
+  updateHomeButtonVisibility();
+  socket.emit('public:browse');
+  toast(t('toast.roomTimeout'), 5000);
+});
+
 // Host kicked this player — clear all state and return to Home.
 socket.on('you:kicked', () => {
   setActiveRoom(null);

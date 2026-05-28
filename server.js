@@ -44,6 +44,12 @@ function isHost(room, socketId) {
   return room && room.hostId === socketId;
 }
 
+// Stamp a room as recently active. Call on every meaningful player action
+// so the idle-cleanup sweep doesn't evict rooms that are in use.
+function touchRoom(room) {
+  if (room) room.lastActivityAt = Date.now();
+}
+
 function getRoomForSocket(socket) {
   const code = socket.data.roomCode;
   if (!code) return null;
@@ -73,6 +79,7 @@ io.on('connection', (socket) => {
     socket.data.clientId = clientId;
     // Leave the public-lobby broadcast channel — creator is now in a game room.
     socket.leave('public-lobby');
+    touchRoom(room);
     cb && cb({ ok: true, code: room.code, you: socket.id, snapshot: rooms.publicSnapshot(room) });
     game.broadcastSnapshot(room);
     if (room.isPublic) broadcastPublicList();
@@ -89,6 +96,7 @@ io.on('connection', (socket) => {
     socket.data.clientId = clientId;
     // Leave the public-lobby broadcast channel — joiner is now in a game room.
     socket.leave('public-lobby');
+    touchRoom(room);
     cb && cb({ ok: true, code: room.code, you: socket.id, snapshot: rooms.publicSnapshot(room) });
     game.broadcastSnapshot(room);
     if (room.isPublic) broadcastPublicList();
@@ -248,6 +256,7 @@ io.on('connection', (socket) => {
     console.log(`[game:start] room ${room.code} category=${room.category}`);
     const r = game.startGame(room);
     console.log(`[game:start] room ${room.code} picked categoryKey=${room.categoryKey} word=${room.word}`);
+    touchRoom(room);
     cb && cb(r);
     // Game started — remove from public browser if it was public.
     if (room.isPublic) broadcastPublicList();
@@ -288,12 +297,14 @@ io.on('connection', (socket) => {
   socket.on('round:next', () => {
     const room = getRoomForSocket(socket);
     if (!room || !isHost(room, socket.id)) return;
+    touchRoom(room);
     game.nextRound(room);
   });
 
   socket.on('match:new', () => {
     const room = getRoomForSocket(socket);
     if (!room || !isHost(room, socket.id)) return;
+    touchRoom(room);
     game.newMatch(room);
   });
 
@@ -394,6 +405,37 @@ function sanitizeName(name) {
   const trimmed = name.trim().slice(0, 20);
   return trimmed || 'Player';
 }
+
+// ---------- Idle room cleanup -------------------------------------------
+// Sweep every 10 minutes. Delete rooms that have been untouched longer
+// than their state-specific limit. Notifies connected players first so
+// they land back on the home screen instead of seeing a disconnect error.
+
+const IDLE_LIMITS = {
+  lobby:          60 * 60 * 1000,  // 1 hour  — created but never started
+  drawing:     2 * 60 * 60 * 1000, // 2 hours — generous; active games touch frequently
+  voting:      2 * 60 * 60 * 1000,
+  impostor_guess: 2 * 60 * 60 * 1000,
+  round_results:  30 * 60 * 1000,  // 30 min  — abandoned on results screen
+  match_end:      30 * 60 * 1000,
+};
+
+setInterval(() => {
+  const now = Date.now();
+  for (const room of rooms.allRooms()) {
+    const limit = IDLE_LIMITS[room.state] ?? 60 * 60 * 1000;
+    const idleMs = now - (room.lastActivityAt || now);
+    if (idleMs < limit) continue;
+
+    const idleMin = Math.round(idleMs / 60_000);
+    console.log(`[idle-cleanup] removing room ${room.code} (state=${room.state}, idle=${idleMin}min)`);
+
+    // Tell every connected player so they return to the home screen.
+    io.to(room.code).emit('room:timeout');
+    rooms.deleteRoom(room.code);
+    broadcastPublicList();
+  }
+}, 10 * 60 * 1000);
 
 server.listen(PORT, () => {
   console.log(`Mr.Scratch listening on http://localhost:${PORT}`);
