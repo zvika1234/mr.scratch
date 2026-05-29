@@ -41,6 +41,7 @@ const I18N = {
     'lobby.avatarTaken': 'Already taken by another player',
     'lobby.readyLabel': "I'm Ready",
     'lobby.readyHelper': 'All players need to be ready for the host to start the game.',
+    'lobby.readyBadge': 'Ready',
 
     'cat.random': 'Random',
     'cat.food': 'Food',
@@ -158,6 +159,7 @@ const I18N = {
     'lobby.avatarTaken': 'כבר תפוס על ידי שחקן אחר',
     'lobby.readyLabel': 'אני מוכן',
     'lobby.readyHelper': 'כל השחקנים צריכים להיות מוכנים כדי שהמארח יוכל להתחיל.',
+    'lobby.readyBadge': 'מוכן',
 
     'cat.random': 'אקראי',
     'cat.food': 'אוכל',

@@ -429,6 +429,14 @@ button:disabled { opacity: .45; cursor: not-allowed; pointer-events: auto; }
   font-weight: 500;
 }
 .players-list li.is-bot { background: rgba(167,139,250,.1); border-color: rgba(167,139,250,.25); }
+.badge-ready {
+  font-size: .68rem; font-weight: 700;
+  padding: 2px 8px; border-radius: var(--radius-pill);
+  background: rgba(52, 211, 153, 0.15);
+  color: var(--good);
+  border: 1px solid rgba(52, 211, 153, 0.35);
+  letter-spacing: .2px;
+}
 .players-list li .badge {
   background: linear-gradient(135deg, var(--primary), var(--purple));
   color: #fff; font-size: .68rem; font-weight: 700;

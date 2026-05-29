@@ -426,6 +426,14 @@ function renderLobby() {
       li.appendChild(badge);
     }
 
+    // Ready badge — shown in public rooms for non-host, non-bot players who confirmed
+    if (snap.isPublic && !p.isBot && !p.isHost && p.ready) {
+      const readyBadge = document.createElement('span');
+      readyBadge.className = 'badge-ready';
+      readyBadge.textContent = t('lobby.readyBadge');
+      li.appendChild(readyBadge);
+    }
+
     // Kick button (host only, non-host human players only)
     if (isHost() && !p.isHost && !p.isBot) {
       const kick = document.createElement('button');
