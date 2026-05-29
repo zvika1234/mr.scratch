@@ -554,6 +554,33 @@ span.ready-icon { margin-inline-start: 6px; }
 
 .host-controls { margin-top: 12px; }
 
+/* ---------- Ready section (bottom of public lobby) ---------- */
+#ready-section {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+.ready-check-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 1rem;
+  user-select: none;
+}
+.ready-check-label input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  cursor: pointer;
+  accent-color: var(--good);
+}
+.ready-helper {
+  margin: 8px 0 0;
+  padding-inline-start: 30px;
+}
+
 /* ---------- Game grid ---------- */
 .game-grid {
   display: grid;

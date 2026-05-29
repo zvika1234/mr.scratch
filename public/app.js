@@ -426,26 +426,6 @@ function renderLobby() {
       li.appendChild(badge);
     }
 
-    // ── Ready indicator (public rooms, human non-host players only) ──
-    if (snap.isPublic && !p.isBot && !p.isHost) {
-      if (p.id === State.myId) {
-        // My own row — clickable toggle
-        const readyBtn = document.createElement('button');
-        readyBtn.type = 'button';
-        readyBtn.className = 'ready-icon ready-mine';
-        readyBtn.textContent = p.ready ? '✅' : '❌';
-        readyBtn.title = p.ready ? t('lobby.clickToUnready') : t('lobby.clickToReady');
-        readyBtn.addEventListener('click', () => socket.emit('lobby:ready'));
-        li.appendChild(readyBtn);
-      } else {
-        // Other player — read-only indicator
-        const readyIcon = document.createElement('span');
-        readyIcon.className = 'ready-icon';
-        readyIcon.textContent = p.ready ? '✅' : '❌';
-        li.appendChild(readyIcon);
-      }
-    }
-
     // Kick button (host only, non-host human players only)
     if (isHost() && !p.isHost && !p.isBot) {
       const kick = document.createElement('button');
@@ -491,6 +471,16 @@ function renderLobby() {
     hostCtl.hidden = true;
     waiting.hidden = false;
   }
+
+  // Ready section — visible only to non-host human players in public rooms.
+  const readySection = $('#ready-section');
+  const myPlayer = snap.players.find((p) => p.id === State.myId);
+  if (snap.isPublic && myPlayer && !myPlayer.isHost) {
+    readySection.hidden = false;
+    $('#lobby-ready-check').checked = myPlayer.ready || false;
+  } else {
+    readySection.hidden = true;
+  }
 }
 
 function isHost() {
@@ -498,6 +488,7 @@ function isHost() {
 }
 
 $('#btn-add-bot').addEventListener('click', () => socket.emit('lobby:addBot'));
+$('#lobby-ready-check').addEventListener('change', () => socket.emit('lobby:ready'));
 $('#lobby-category').addEventListener('change', (e) =>
   socket.emit('lobby:setCategory', { category: e.target.value })
 );

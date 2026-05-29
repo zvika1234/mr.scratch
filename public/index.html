@@ -190,6 +190,15 @@
         </div>
 
         <p id="waiting-for-host" class="muted" hidden data-i18n="lobby.waitingHost">Waiting for the host to start…</p>
+
+        <!-- Ready section — only shown to non-host human players in public rooms -->
+        <div id="ready-section" hidden>
+          <label class="ready-check-label">
+            <input type="checkbox" id="lobby-ready-check" />
+            <span data-i18n="lobby.readyLabel">I'm Ready</span>
+          </label>
+          <p class="ready-helper muted small" data-i18n="lobby.readyHelper">All players need to be ready for the host to start the game.</p>
+        </div>
       </div>
     </section>
 

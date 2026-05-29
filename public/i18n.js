@@ -39,8 +39,8 @@ const I18N = {
     'lobby.botBadge': 'BOT',
     'lobby.changeAvatar': 'Click to change avatar',
     'lobby.avatarTaken': 'Already taken by another player',
-    'lobby.clickToReady': 'Click to mark yourself Ready',
-    'lobby.clickToUnready': 'Click to cancel Ready',
+    'lobby.readyLabel': "I'm Ready",
+    'lobby.readyHelper': 'All players need to be ready for the host to start the game.',
 
     'cat.random': 'Random',
     'cat.food': 'Food',
@@ -156,8 +156,8 @@ const I18N = {
     'lobby.botBadge': 'בוט',
     'lobby.changeAvatar': 'לחץ לשנות אווטאר',
     'lobby.avatarTaken': 'כבר תפוס על ידי שחקן אחר',
-    'lobby.clickToReady': 'לחץ לסמן את עצמך כמוכן',
-    'lobby.clickToUnready': 'לחץ לביטול מוכנות',
+    'lobby.readyLabel': 'אני מוכן',
+    'lobby.readyHelper': 'כל השחקנים צריכים להיות מוכנים כדי שהמארח יוכל להתחיל.',
 
     'cat.random': 'אקראי',
     'cat.food': 'אוכל',
