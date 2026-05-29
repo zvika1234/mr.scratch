@@ -862,27 +862,37 @@ body:has(#screen-home.active) {
   list-style: none;
   padding: 0;
   margin: 4px 0 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
   width: 100%;
-  max-width: 480px;
-  margin-inline: auto;
+}
+@media (min-width: 600px) {
+  .public-rooms-list {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
 }
 .public-room-card {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 14px;
+  padding: 14px 18px;
   background: var(--glass);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-sm);
   flex-wrap: wrap;
+  transition: background .2s, border-color .2s;
+}
+.public-room-card:hover {
+  background: var(--glass-hi);
+  border-color: rgba(255,255,255,0.22);
 }
 .public-room-card .pr-host {
   font-weight: 600;
   flex: 1;
   min-width: 80px;
+  font-size: 1rem;
 }
 .public-room-card .pr-count {
   font-size: .82rem;
@@ -897,14 +907,15 @@ body:has(#screen-home.active) {
   color: var(--accent);
 }
 .public-room-card .pr-meta {
-  font-size: .82rem;
+  font-size: .85rem;
   color: var(--ink-soft);
   white-space: nowrap;
 }
 .public-room-card button.small {
-  padding: 5px 14px;
-  font-size: .85rem;
+  padding: 6px 16px;
+  font-size: .88rem;
   min-height: unset;
+  margin-inline-start: auto;
 }
 
 /* Title & tagline breathing room */
@@ -927,12 +938,13 @@ body:has(#screen-home.active) {
    and fill the viewport.
    ========================================================= */
 
-/* --- Shared: all in-game screens (lobby, game, vote, guess, results) --- */
+/* --- Shared: all in-game screens (lobby, game, vote, guess, results, public) --- */
 #screen-lobby.active,
 #screen-game.active,
 #screen-vote.active,
 #screen-guess.active,
-#screen-results.active {
+#screen-results.active,
+#screen-public.active {
   position: fixed;
   top: 56px;   /* just below the topbar */
   left: 6px;
@@ -944,10 +956,11 @@ body:has(#screen-home.active) {
   overflow-x: hidden;
 }
 
-/* Lobby / vote / guess — centred card */
+/* Lobby / vote / guess / public — centred card */
 #screen-lobby.active,
 #screen-vote.active,
-#screen-guess.active {
+#screen-guess.active,
+#screen-public.active {
   display: flex !important;
   align-items: safe center;
   justify-content: center;
@@ -965,10 +978,15 @@ body:has(#screen-home.active) {
 #screen-lobby .card,
 #screen-vote  > .card,
 #screen-guess > .card,
-#screen-results > .card {
+#screen-results > .card,
+#screen-public > .card {
   width: 100%;
   max-width: 860px;
 }
+
+/* ---- Public rooms screen enlargements ---- */
+#screen-public > .card { padding: 28px 32px; }
+#screen-public .screen-back-row h2 { font-size: 1.9rem; }
 
 /* ---- Lobby enlargements ---- */
 #screen-lobby .card { padding: 28px 32px; }
