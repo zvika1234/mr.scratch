@@ -484,11 +484,11 @@ button:disabled { opacity: .45; cursor: not-allowed; pointer-events: auto; }
   background: var(--glass-hi);
 }
 .avatar-picker {
+  display: none; /* hidden until avatar-btn is clicked */
   position: absolute;
   top: calc(100% + 6px);
   inset-inline-start: 0;
   z-index: 50;
-  display: flex;
   gap: 4px;
   padding: 8px 10px;
   background: rgba(15, 15, 35, 0.96);
@@ -497,6 +497,9 @@ button:disabled { opacity: .45; cursor: not-allowed; pointer-events: auto; }
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow);
   white-space: nowrap;
+}
+.avatar-picker:not([hidden]) {
+  display: flex; /* shown when JS removes the hidden attribute */
 }
 .ap-opt {
   font-size: 1.55rem;
