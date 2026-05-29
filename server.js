@@ -9,6 +9,7 @@ const { Server: SocketIOServer } = require('socket.io');
 const rooms = require('./src/rooms');
 const game = require('./src/game');
 const { CATEGORY_KEYS } = require('./src/words');
+const { PLAYER_ANIMALS } = rooms;
 
 // Broadcast the current public lobby list to everyone watching the home screen.
 // Called whenever any public room changes (created, player joins/leaves, game starts).
@@ -71,9 +72,9 @@ io.on('connection', (socket) => {
 
   // --- Room create / join ---
 
-  socket.on('room:create', ({ name, lang, clientId, isPublic }, cb) => {
+  socket.on('room:create', ({ name, lang, clientId, isPublic, preferredAvatar }, cb) => {
     const safeName = sanitizeName(name);
-    const room = rooms.createRoom(socket.id, safeName, lang, clientId, isPublic === true);
+    const room = rooms.createRoom(socket.id, safeName, lang, clientId, isPublic === true, preferredAvatar);
     socket.join(room.code);
     socket.data.roomCode = room.code;
     socket.data.clientId = clientId;
@@ -85,11 +86,11 @@ io.on('connection', (socket) => {
     if (room.isPublic) broadcastPublicList();
   });
 
-  socket.on('room:join', ({ code, name, clientId }, cb) => {
+  socket.on('room:join', ({ code, name, clientId, preferredAvatar }, cb) => {
     const room = rooms.getRoom((code || '').toUpperCase());
     if (!room) return cb && cb({ ok: false, error: 'room_not_found' });
     const safeName = sanitizeName(name);
-    const result = rooms.addPlayer(room, socket.id, safeName, clientId);
+    const result = rooms.addPlayer(room, socket.id, safeName, clientId, preferredAvatar);
     if (result.error) return cb && cb({ ok: false, error: result.error });
     socket.join(room.code);
     socket.data.roomCode = room.code;
@@ -223,6 +224,33 @@ io.on('connection', (socket) => {
     if (rooms.removeBot(room, botId)) game.broadcastSnapshot(room);
   });
 
+  // Toggle ready state — public rooms only, non-host players only.
+  socket.on('lobby:ready', () => {
+    const room = getRoomForSocket(socket);
+    if (!room || room.state !== 'lobby' || !room.isPublic) return;
+    const player = room.players.find((p) => p.id === socket.id);
+    if (!player || player.isHost) return;
+    player.ready = !player.ready;
+    touchRoom(room);
+    game.broadcastSnapshot(room);
+  });
+
+  // Change own avatar — lobby only, any room type.
+  socket.on('lobby:setAvatar', ({ avatar } = {}, cb) => {
+    const room = getRoomForSocket(socket);
+    if (!room || room.state !== 'lobby') return cb && cb({ ok: false, error: 'wrong_state' });
+    if (!avatar || !PLAYER_ANIMALS.includes(avatar)) return cb && cb({ ok: false, error: 'invalid_avatar' });
+    const taken = rooms.allParticipants(room).some((p) => p.avatar === avatar && p.id !== socket.id);
+    if (taken) return cb && cb({ ok: false, error: 'taken' });
+    const player = room.players.find((p) => p.id === socket.id);
+    if (!player) return cb && cb({ ok: false, error: 'not_found' });
+    player.avatar = avatar;
+    touchRoom(room);
+    game.broadcastSnapshot(room);
+    cb && cb({ ok: true });
+    if (room.isPublic) broadcastPublicList(); // update avatar in public room list
+  });
+
   socket.on('lobby:setCategory', ({ category }) => {
     const room = getRoomForSocket(socket);
     if (!room || !isHost(room, socket.id)) return;
@@ -250,6 +278,11 @@ io.on('connection', (socket) => {
   socket.on('game:start', (payload, cb) => {
     const room = getRoomForSocket(socket);
     if (!room || !isHost(room, socket.id)) return cb && cb({ ok: false, error: 'not_host' });
+    // In public rooms, all non-host human players must be ready.
+    if (room.isPublic) {
+      const notReady = room.players.filter((p) => !p.isHost && !p.ready);
+      if (notReady.length > 0) return cb && cb({ ok: false, error: 'not_all_ready' });
+    }
     // Defensive: accept category in the start payload too, so the host's
     // current dropdown choice always wins even if setCategory was lost.
     const allowed = ['random', ...CATEGORY_KEYS];
@@ -308,6 +341,10 @@ io.on('connection', (socket) => {
     const room = getRoomForSocket(socket);
     if (!room || !isHost(room, socket.id)) return;
     touchRoom(room);
+    // Reset ready flags so everyone must re-confirm for the new match.
+    if (room.isPublic) {
+      room.players.forEach((p) => { p.ready = p.isHost; });
+    }
     game.newMatch(room);
   });
 

@@ -41,6 +41,16 @@ const State = {
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
 
+// Animal avatar pool (mirrors server-side PLAYER_ANIMALS).
+const PLAYER_ANIMALS = ['🦊', '🐸', '🦌', '🦢', '🐋'];
+
+// Tracks any open avatar picker so clicks outside close it.
+let _openPicker = null;
+function closeOpenPicker() {
+  if (_openPicker) { _openPicker.hidden = true; _openPicker = null; }
+}
+document.addEventListener('click', closeOpenPicker);
+
 function showScreen(id) {
   $$('.screen').forEach((s) => s.classList.remove('active'));
   $(`#${id}`).classList.add('active');
@@ -162,7 +172,8 @@ function handleJoinResponse(resp) {
 $('#btn-create').addEventListener('click', () => {
   const name = getMyName();
   if (!name) return toast(t('toast.needName'));
-  socket.emit('room:create', { name, lang: 'en', clientId: CLIENT_ID, isPublic: false }, (resp) => {
+  const preferredAvatar = localStorage.getItem('mrscratch.avatar') || undefined;
+  socket.emit('room:create', { name, lang: 'en', clientId: CLIENT_ID, isPublic: false, preferredAvatar }, (resp) => {
     if (!resp || !resp.ok) return toast('Could not create room');
     State.myId = resp.you;
     State.roomCode = resp.code;
@@ -185,7 +196,8 @@ function joinFlow() {
   const code = $('#home-code').value.trim().toUpperCase();
   if (!name) return toast(t('toast.needName'));
   if (!code) return toast(t('toast.needCode'));
-  socket.emit('room:join', { name, code, clientId: CLIENT_ID }, handleJoinResponse);
+  const preferredAvatar = localStorage.getItem('mrscratch.avatar') || undefined;
+  socket.emit('room:join', { name, code, clientId: CLIENT_ID, preferredAvatar }, handleJoinResponse);
 }
 
 // ---------- Public rooms screen ----------
@@ -224,7 +236,8 @@ $('#btn-create-public').addEventListener('click', () => {
     $('#home-name').focus();
     return;
   }
-  socket.emit('room:create', { name, lang: 'en', clientId: CLIENT_ID, isPublic: true }, (resp) => {
+  const preferredAvatar2 = localStorage.getItem('mrscratch.avatar') || undefined;
+  socket.emit('room:create', { name, lang: 'en', clientId: CLIENT_ID, isPublic: true, preferredAvatar: preferredAvatar2 }, (resp) => {
     if (!resp || !resp.ok) return toast('Could not create room');
     State.myId = resp.you;
     State.roomCode = resp.code;
@@ -272,7 +285,8 @@ function renderPublicRooms(list) {
         $('#home-name').focus();
         return;
       }
-      socket.emit('room:join', { code: r.code, name, clientId: CLIENT_ID }, handleJoinResponse);
+      const pav = localStorage.getItem('mrscratch.avatar') || undefined;
+      socket.emit('room:join', { code: r.code, name, clientId: CLIENT_ID, preferredAvatar: pav }, handleJoinResponse);
     });
     li.appendChild(btn);
     ul.appendChild(li);
@@ -315,46 +329,147 @@ function renderLobby() {
   list.innerHTML = '';
 
   const everyone = [...snap.players, ...snap.bots];
+  // All avatars currently in use (for picker "taken" state).
+  const takenAvatars = new Set(everyone.map((p) => p.avatar).filter(Boolean));
+
   for (const p of everyone) {
     const li = document.createElement('li');
     if (p.isBot) li.classList.add('is-bot', 'bot-row');
     if (p.connected === false) li.classList.add('disconnected');
-    const dot = p.connected === false ? '<span class="dc-dot" title="disconnected">⚠️</span> ' : '';
-    li.innerHTML = `<span>${dot}${p.avatar || ''} ${escapeHtml(p.name)}</span>`;
+
+    // Disconnected warning dot
+    if (p.connected === false) {
+      const dot = document.createElement('span');
+      dot.className = 'dc-dot';
+      dot.title = 'disconnected';
+      dot.textContent = '⚠️';
+      li.appendChild(dot);
+    }
+
+    // ── Avatar (clickable only for my own row in lobby, to change it) ──
+    const avatarWrap = document.createElement('span');
+    avatarWrap.className = 'player-avatar-wrap';
+
+    if (!p.isBot && p.id === State.myId && snap.state === 'lobby') {
+      const avatarBtn = document.createElement('button');
+      avatarBtn.type = 'button';
+      avatarBtn.className = 'avatar-btn';
+      avatarBtn.textContent = p.avatar || '🎮';
+      avatarBtn.title = t('lobby.changeAvatar');
+
+      const picker = document.createElement('div');
+      picker.className = 'avatar-picker';
+      picker.hidden = true;
+      picker.addEventListener('click', (e) => e.stopPropagation());
+
+      for (const animal of PLAYER_ANIMALS) {
+        const opt = document.createElement('button');
+        opt.type = 'button';
+        opt.className = 'ap-opt';
+        opt.textContent = animal;
+        const isTaken = takenAvatars.has(animal) && animal !== p.avatar;
+        if (isTaken) {
+          opt.disabled = true;
+          opt.classList.add('taken');
+          opt.title = t('lobby.avatarTaken');
+        } else {
+          opt.addEventListener('click', (e) => {
+            e.stopPropagation();
+            socket.emit('lobby:setAvatar', { avatar: animal }, (res) => {
+              if (res && res.ok) localStorage.setItem('mrscratch.avatar', animal);
+            });
+            picker.hidden = true;
+            _openPicker = null;
+          });
+        }
+        picker.appendChild(opt);
+      }
+
+      avatarBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (!picker.hidden) {
+          picker.hidden = true;
+          _openPicker = null;
+        } else {
+          closeOpenPicker();
+          picker.hidden = false;
+          _openPicker = picker;
+        }
+      });
+
+      avatarWrap.appendChild(avatarBtn);
+      avatarWrap.appendChild(picker);
+    } else {
+      avatarWrap.textContent = p.avatar || '';
+    }
+    li.appendChild(avatarWrap);
+
+    // Name
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'player-name';
+    nameSpan.textContent = ' ' + p.name; // non-breaking space for gap
+    li.appendChild(nameSpan);
+
+    // HOST badge
     if (p.isHost) {
       const badge = document.createElement('span');
       badge.className = 'badge';
       badge.textContent = t('lobby.hostBadge');
       li.appendChild(badge);
     }
-    // Host can kick non-host human players from the lobby.
+
+    // BOT badge
+    if (p.isBot) {
+      const badge = document.createElement('span');
+      badge.className = 'badge';
+      badge.textContent = t('lobby.botBadge');
+      li.appendChild(badge);
+    }
+
+    // ── Ready indicator (public rooms, human non-host players only) ──
+    if (snap.isPublic && !p.isBot && !p.isHost) {
+      if (p.id === State.myId) {
+        // My own row — clickable toggle
+        const readyBtn = document.createElement('button');
+        readyBtn.type = 'button';
+        readyBtn.className = 'ready-icon ready-mine';
+        readyBtn.textContent = p.ready ? '✅' : '❌';
+        readyBtn.title = p.ready ? t('lobby.clickToUnready') : t('lobby.clickToReady');
+        readyBtn.addEventListener('click', () => socket.emit('lobby:ready'));
+        li.appendChild(readyBtn);
+      } else {
+        // Other player — read-only indicator
+        const readyIcon = document.createElement('span');
+        readyIcon.className = 'ready-icon';
+        readyIcon.textContent = p.ready ? '✅' : '❌';
+        li.appendChild(readyIcon);
+      }
+    }
+
+    // Kick button (host only, non-host human players only)
     if (isHost() && !p.isHost && !p.isBot) {
       const kick = document.createElement('button');
       kick.className = 'kick-btn';
+      kick.type = 'button';
       kick.title = t('lobby.kickPlayer');
       kick.textContent = '✕';
       kick.style.marginInlineStart = 'auto';
       kick.addEventListener('click', () => socket.emit('player:kick', { targetId: p.id }));
       li.appendChild(kick);
     }
-    if (p.isBot) {
-      const badge = document.createElement('span');
-      badge.className = 'badge';
-      badge.textContent = t('lobby.botBadge');
-      li.appendChild(badge);
-      // Host can remove bots
-      if (isHost()) {
-        const remove = document.createElement('button');
-        remove.className = 'remove-bot';
-        remove.textContent = '✕';
-        remove.title = t('lobby.removeBot');
-        remove.style.marginInlineStart = 'auto';
-        remove.addEventListener('click', () => {
-          socket.emit('lobby:removeBot', { botId: p.id });
-        });
-        li.appendChild(remove);
-      }
+
+    // Remove-bot button (host only)
+    if (p.isBot && isHost()) {
+      const remove = document.createElement('button');
+      remove.className = 'remove-bot';
+      remove.type = 'button';
+      remove.textContent = '✕';
+      remove.title = t('lobby.removeBot');
+      remove.style.marginInlineStart = 'auto';
+      remove.addEventListener('click', () => socket.emit('lobby:removeBot', { botId: p.id }));
+      li.appendChild(remove);
     }
+
     list.appendChild(li);
   }
 
@@ -365,7 +480,13 @@ function renderLobby() {
     waiting.hidden = true;
     $('#lobby-category').value = snap.category;
     const total = snap.players.length + snap.bots.length;
-    $('#btn-start').disabled = total < 3 || total > 5;
+    let startDisabled = total < 3 || total > 5;
+    // Public rooms: all non-host human players must be ready.
+    if (snap.isPublic && !startDisabled) {
+      const notReady = snap.players.filter((p) => !p.isHost && !p.ready);
+      if (notReady.length > 0) startDisabled = true;
+    }
+    $('#btn-start').disabled = startDisabled;
   } else {
     hostCtl.hidden = true;
     waiting.hidden = false;
@@ -392,6 +513,7 @@ $('#btn-start').addEventListener('click', () => {
   socket.emit('game:start', { category }, (resp) => {
     if (!resp || !resp.ok) {
       if (resp && resp.error === 'need_three_players') toast(t('toast.needThree'));
+      if (resp && resp.error === 'not_all_ready') toast(t('toast.notAllReady'));
     }
   });
 });

@@ -17,7 +17,7 @@ function pickAvatar(room) {
 
 const rooms = new Map();
 
-function createRoom(hostSocketId, hostName, lang, clientId, isPublic) {
+function createRoom(hostSocketId, hostName, lang, clientId, isPublic, preferredAvatar) {
   let code;
   // Defensive: avoid the (astronomically unlikely) chance of code collision.
   do {
@@ -55,13 +55,19 @@ function createRoom(hostSocketId, hostName, lang, clientId, isPublic) {
     impostorGuessTimer: null,
   };
 
+  // Honor the host's preferred avatar (no conflict possible — room is empty).
+  const hostAvatar = (preferredAvatar && PLAYER_ANIMALS.includes(preferredAvatar))
+    ? preferredAvatar
+    : pickAvatar(room);
+
   const host = {
     id: hostSocketId,
     clientId: clientId || hostSocketId, // stable identity across reconnects
     name: hostName,
-    avatar: pickAvatar(room),
+    avatar: hostAvatar,
     isBot: false,
     isHost: true,
+    ready: true, // host is always considered ready (they own the Start button)
     connected: true,
     disconnectTimer: null,
   };
@@ -92,16 +98,25 @@ function findRoomBySocketId(socketId) {
   return null;
 }
 
-function addPlayer(room, socketId, name, clientId) {
+function addPlayer(room, socketId, name, clientId, preferredAvatar) {
   if (room.players.length + room.bots.length >= 5) return { error: 'room_full' };
   if (room.state !== 'lobby') return { error: 'game_in_progress' };
+  // Honor preferred avatar if it's valid and not already taken.
+  let avatar;
+  if (preferredAvatar && PLAYER_ANIMALS.includes(preferredAvatar)) {
+    const taken = [...room.players, ...room.bots].some((p) => p.avatar === preferredAvatar);
+    avatar = taken ? pickAvatar(room) : preferredAvatar;
+  } else {
+    avatar = pickAvatar(room);
+  }
   const player = {
     id: socketId,
     clientId: clientId || socketId,
     name: name || 'Player',
-    avatar: pickAvatar(room),
+    avatar,
     isBot: false,
     isHost: false,
+    ready: false, // must explicitly toggle Ready in public rooms
     connected: true,
     disconnectTimer: null,
   };
@@ -212,13 +227,14 @@ function publicSnapshot(room) {
     code: room.code,
     hostId: room.hostId,
     isPublic: room.isPublic || false,
-    players: room.players.map(({ id, name, avatar, isHost, connected }) => ({
+    players: room.players.map(({ id, name, avatar, isHost, connected, ready }) => ({
       id,
       name,
       avatar,
       isHost,
       isBot: false,
       connected,
+      ready: ready ?? false,
     })),
     bots: room.bots.map(({ id, name, avatar }) => ({ id, name, avatar, isBot: true })),
     lang: room.lang,
@@ -254,6 +270,7 @@ function allRooms() {
 }
 
 module.exports = {
+  PLAYER_ANIMALS,
   createRoom,
   allRooms,
   getRoom,

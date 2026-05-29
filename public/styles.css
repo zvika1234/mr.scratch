@@ -462,6 +462,93 @@ button:disabled { opacity: .45; cursor: not-allowed; pointer-events: auto; }
 }
 .kick-btn:hover { opacity: 1; background: rgba(248, 113, 113, 0.2); }
 
+/* ---------- Avatar picker ---------- */
+.player-avatar-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.avatar-btn {
+  background: none;
+  border: 2px solid transparent;
+  border-radius: var(--radius-pill);
+  padding: 1px 3px;
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+.avatar-btn:hover {
+  border-color: var(--primary-light);
+  background: var(--glass-hi);
+}
+.avatar-picker {
+  position: absolute;
+  top: calc(100% + 6px);
+  inset-inline-start: 0;
+  z-index: 50;
+  display: flex;
+  gap: 4px;
+  padding: 8px 10px;
+  background: rgba(15, 15, 35, 0.96);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow);
+  white-space: nowrap;
+}
+.ap-opt {
+  font-size: 1.55rem;
+  background: none;
+  border: 2px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: 4px 6px;
+  cursor: pointer;
+  line-height: 1;
+  transition: background .12s, border-color .12s, transform .12s;
+}
+.ap-opt:hover:not(:disabled) {
+  background: var(--glass-hi);
+  border-color: var(--primary-light);
+  transform: scale(1.12);
+}
+.ap-opt:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+.ap-opt.taken { position: relative; }
+.ap-opt.taken::after {
+  content: '🔒';
+  position: absolute;
+  bottom: 2px;
+  inset-inline-end: 0;
+  font-size: 0.55rem;
+  line-height: 1;
+}
+
+/* ---------- Ready icon ---------- */
+.ready-icon {
+  font-size: 1.05rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+button.ready-icon.ready-mine {
+  background: none;
+  border: 1.5px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: 2px 5px;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+  margin-inline-start: auto;
+}
+button.ready-icon.ready-mine:hover {
+  border-color: var(--glass-border);
+  background: var(--glass-hi);
+}
+/* Other player's ready icon — no auto-margin, flows after name */
+span.ready-icon { margin-inline-start: 6px; }
+
 .host-controls { margin-top: 12px; }
 
 /* ---------- Game grid ---------- */
