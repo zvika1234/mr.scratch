@@ -382,6 +382,50 @@ button:disabled { opacity: .45; cursor: not-allowed; pointer-events: auto; }
 .rules ol  { padding-inline-start: 22px; line-height: 1.65; color: var(--ink-soft); margin: 10px 0 0; }
 .rules li  { margin: 5px 0; font-size: .93rem; }
 
+/* ---------- Quick Tips ---------- */
+.quick-tips {
+  margin-top: 14px;
+  padding: 14px 18px;
+  text-align: start;
+  background: rgba(245, 158, 11, 0.07);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 0 16px rgba(245, 158, 11, 0.12);
+  animation: tipsGlow 3.5s ease-in-out infinite;
+}
+@keyframes tipsGlow {
+  0%, 100% { box-shadow: 0 0 12px rgba(245, 158, 11, 0.10); border-color: rgba(245, 158, 11, 0.25); }
+  50%       { box-shadow: 0 0 26px rgba(245, 158, 11, 0.28); border-color: rgba(245, 158, 11, 0.50); }
+}
+.quick-tips-title {
+  color: var(--accent);
+  font-size: .95rem;
+  font-weight: 700;
+  margin: 0 0 10px;
+}
+.quick-tips-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.quick-tips-list li {
+  font-size: .88rem;
+  color: var(--ink-soft);
+  line-height: 1.45;
+  padding-inline-start: 20px;
+  position: relative;
+}
+.quick-tips-list li::before {
+  content: '⚡';
+  position: absolute;
+  inset-inline-start: 0;
+  font-size: .8rem;
+  top: 1px;
+}
+
 /* ---------- Utility ---------- */
 .muted { color: var(--muted); }
 .small { font-size: .85rem; }
@@ -850,7 +894,8 @@ body:has(#screen-home.active) {
   height: 36px;
 }
 
-#screen-home .hero .rules {
+#screen-home .hero .rules,
+#screen-home .hero .quick-tips {
   width: 100%;
   max-width: 480px;
   margin-inline: auto;

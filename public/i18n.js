@@ -108,6 +108,11 @@ const I18N = {
     'home.availableRooms': 'Available rooms',
     'home.noPublicRooms': 'No open rooms right now. Be the first!',
     'lobby.publicBadge': '🌍 Public',
+
+    'home.tipsTitle': 'Quick Tips',
+    'home.tip1': 'Draw hints, not spoilers. Clear icons make it easy for the impostor to hide.',
+    'home.tip2': 'Use your color strategically so teammates can connect the right strokes to the right player.',
+    'home.tip3': 'Make it count! You only have 10 seconds and ONE continuous stroke to draw your hint.',
   },
 
   he: {
@@ -215,6 +220,11 @@ const I18N = {
     'home.availableRooms': 'חדרים פתוחים',
     'home.noPublicRooms': 'אין חדרים פתוחים כרגע. תהיה הראשון!',
     'lobby.publicBadge': '🌍 ציבורי',
+
+    'home.tipsTitle': 'טיפים מהירים',
+    'home.tip1': 'צייר רמזים, לא ספוילרים. סמלים ברורים מקלים על המתחזה להסתתר.',
+    'home.tip2': 'השתמש בצבע שלך בחוכמה כדי שהחברים יוכלו לזהות את הקווים שלך.',
+    'home.tip3': '!תנצל את הזמן. יש לך רק 10 שניות וקו אחד רצוף לצייר את הרמז',
   },
 };
 
