@@ -708,6 +708,7 @@ span.ready-icon { margin-inline-start: 6px; }
 #board {
   display: block; width: 100%; height: 100%;
   cursor: crosshair; background: #fff;
+  touch-action: none; /* prevent scroll/zoom while drawing */
 }
 #board.frozen { cursor: not-allowed; }
 

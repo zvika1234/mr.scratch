@@ -121,7 +121,17 @@ const Board = (() => {
 
   function onPointerMove(e) {
     if (!enabled || !drawing) return;
-    currentPoints.push(toNormalized(e));
+    e.preventDefault(); // block scroll/zoom while actively drawing
+    const pt = toNormalized(e);
+    // Delta safety check: skip this frame if the point jumped an unrealistic
+    // distance from the last known position. A zoom-caused coordinate glitch
+    // typically jumps 50–100%+ of the canvas in a single frame; the fastest
+    // realistic finger swipe at 60 fps moves < 15% of the canvas per frame.
+    // 0.25 (25%) is a safe boundary that catches glitches without clipping
+    // genuine fast strokes.
+    const prev = currentPoints[currentPoints.length - 1];
+    if (prev && (Math.abs(pt.x - prev.x) > 0.25 || Math.abs(pt.y - prev.y) > 0.25)) return;
+    currentPoints.push(pt);
     const now = performance.now();
     if (now - lastEmit > 50) flushBatch(false);
   }
