@@ -18,6 +18,7 @@ function broadcastPublicList() {
 }
 
 const PORT = process.env.PORT || 3000;
+const MAX_ROOMS = 100; // hard cap to protect server memory
 
 const app = express();
 // Serve static files. HTML gets no-cache headers so Render's CDN always
@@ -73,6 +74,9 @@ io.on('connection', (socket) => {
   // --- Room create / join ---
 
   socket.on('room:create', ({ name, lang, clientId, isPublic, preferredAvatar }, cb) => {
+    if (rooms.allRooms().length >= MAX_ROOMS) {
+      return cb && cb({ ok: false, error: 'server_full' });
+    }
     const safeName = sanitizeName(name);
     const room = rooms.createRoom(socket.id, safeName, lang, clientId, isPublic === true, preferredAvatar);
     socket.join(room.code);

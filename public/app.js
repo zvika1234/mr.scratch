@@ -174,7 +174,10 @@ $('#btn-create').addEventListener('click', () => {
   if (!name) return toast(t('toast.needName'));
   const preferredAvatar = localStorage.getItem('mrscratch.avatar') || undefined;
   socket.emit('room:create', { name, lang: 'en', clientId: CLIENT_ID, isPublic: false, preferredAvatar }, (resp) => {
-    if (!resp || !resp.ok) return toast('Could not create room');
+    if (!resp || !resp.ok) {
+      if (resp && resp.error === 'server_full') return toast(t('toast.serverFull'), 4000);
+      return toast('Could not create room');
+    }
     State.myId = resp.you;
     State.roomCode = resp.code;
     State.snapshot = resp.snapshot;
@@ -238,7 +241,10 @@ $('#btn-create-public').addEventListener('click', () => {
   }
   const preferredAvatar2 = localStorage.getItem('mrscratch.avatar') || undefined;
   socket.emit('room:create', { name, lang: 'en', clientId: CLIENT_ID, isPublic: true, preferredAvatar: preferredAvatar2 }, (resp) => {
-    if (!resp || !resp.ok) return toast('Could not create room');
+    if (!resp || !resp.ok) {
+      if (resp && resp.error === 'server_full') return toast(t('toast.serverFull'), 4000);
+      return toast('Could not create room');
+    }
     State.myId = resp.you;
     State.roomCode = resp.code;
     State.snapshot = resp.snapshot;
