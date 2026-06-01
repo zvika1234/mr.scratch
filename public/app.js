@@ -496,6 +496,13 @@ function isHost() {
 }
 
 $('#btn-add-bot').addEventListener('click', () => socket.emit('lobby:addBot'));
+// Dev-only: hide the Add Bot button for everyone except the developer.
+// To unlock it in your browser, open the console and run:
+//   localStorage.setItem('mrscratch.devMode', '1')
+// To hide it again: localStorage.removeItem('mrscratch.devMode')
+if (!localStorage.getItem('mrscratch.devMode')) {
+  $('#btn-add-bot').hidden = true;
+}
 $('#lobby-ready-check').addEventListener('change', () => socket.emit('lobby:ready'));
 $('#lobby-category').addEventListener('change', (e) =>
   socket.emit('lobby:setCategory', { category: e.target.value })
