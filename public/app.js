@@ -1056,7 +1056,7 @@ socket.on('connect', () => {
 function attemptReconnect(code) {
   socket.emit('room:reconnect', { code, clientId: CLIENT_ID }, (resp) => {
     if (!resp || !resp.ok) {
-      // Stale active room. Forget it so the user lands on Home next visit.
+      // Stale active room — clear it and return to Home with a clear message.
       if (resp && (resp.error === 'room_not_found' || resp.error === 'player_not_found')) {
         setActiveRoom(null);
         State.roomCode = null;
@@ -1064,6 +1064,7 @@ function attemptReconnect(code) {
         State.snapshot = null;
         showScreen('screen-home');
         updateHomeButtonVisibility();
+        toast(t('toast.roomExpired'), 4000);
       }
       return;
     }
