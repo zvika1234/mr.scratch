@@ -9,7 +9,7 @@ const I18N = {
 
     'home.title': 'Mr.Scratch',
     'home.tagline': 'Draw. Spot the impostor. Survive.',
-    'home.yourName': 'Your name',
+    'home.yourName': 'Enter your name',
     'home.create': 'Create Private Room',
     'home.join': 'Join Room',
     'home.or': 'or',
@@ -129,7 +129,7 @@ const I18N = {
 
     'home.title': 'מר.סקראץ׳',
     'home.tagline': 'תצייר. תזהה את המתחזה. תשרוד.',
-    'home.yourName': 'השם שלך',
+    'home.yourName': 'הזן את שמך',
     'home.create': 'צור חדר פרטי',
     'home.join': 'הצטרף לחדר',
     'home.or': 'או',

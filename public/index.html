@@ -61,12 +61,21 @@
         <p class="tagline" data-i18n="home.tagline">Draw. Spot the impostor. Survive.</p>
 
         <label class="field">
-          <span data-i18n="home.yourName">Your name</span>
+          <span data-i18n="home.yourName">Enter your name</span>
           <input id="home-name" type="text" maxlength="20" autocomplete="off" />
         </label>
 
         <div class="row" style="justify-content:center">
-          <button id="btn-create" class="primary cta" type="button">
+          <button id="btn-browse-public" class="btn-public-cta" type="button">
+            <span style="margin-inline-end:6px">🌍</span>
+            <span data-i18n="home.browsePublic">Public Rooms</span>
+          </button>
+        </div>
+
+        <div class="divider" data-i18n="home.or">or</div>
+
+        <div class="row" style="justify-content:center">
+          <button id="btn-create" class="btn-private-cta" type="button">
             <span style="margin-inline-end:6px">🎨</span>
             <span data-i18n="home.create">Create Private Room</span>
           </button>
@@ -79,15 +88,6 @@
           <button id="btn-join" class="secondary" type="button">
             <span style="margin-inline-end:5px">🚪</span>
             <span data-i18n="home.join">Join Room</span>
-          </button>
-        </div>
-
-        <div class="divider" data-i18n="home.or">or</div>
-
-        <div class="row" style="justify-content:center">
-          <button id="btn-browse-public" class="ghost cta" type="button">
-            <span style="margin-inline-end:6px">🌍</span>
-            <span data-i18n="home.browsePublic">Public Rooms</span>
           </button>
         </div>
 
