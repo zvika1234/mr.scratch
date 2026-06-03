@@ -515,8 +515,8 @@ $('#lobby-category').addEventListener('change', (e) =>
 );
 // (lobby-lang selector removed — game language is now set via the ⚙️ settings panel)
 $('#btn-copy-link').addEventListener('click', () => {
-  const url = `${window.location.origin}${window.location.pathname}?room=${State.roomCode}`;
-  navigator.clipboard.writeText(url).then(() => toast(t('toast.linkCopied')));
+  const msg = `🕵️ One of us doesn't know the word. Can you figure out who? Join my room 👉 mrscratch.online/${State.roomCode}`;
+  navigator.clipboard.writeText(msg).then(() => toast(t('toast.linkCopied')));
 });
 $('#btn-start').addEventListener('click', () => {
   // Send the current dropdown value as a fallback in case a prior setCategory
