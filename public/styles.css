@@ -1455,6 +1455,40 @@ button.btn-private-cta:active { transform: translateY(0); }
   background: #fff;
 }
 
+/* ---------- Home screen desktop enlargements ---------- */
+@media (min-width: 768px) {
+  #screen-home .hero h1 {
+    font-size: 3.6rem;
+  }
+  #screen-home .hero .tagline {
+    font-size: 1.2rem;
+  }
+  #screen-home .hero .field > span {
+    font-size: 1rem;
+  }
+  #screen-home .hero input[type="text"] {
+    padding: 17px 20px;
+    font-size: 1.05rem;
+  }
+  #screen-home .hero .join-row input {
+    font-size: 1.25rem;
+  }
+  #screen-home button.btn-public-cta {
+    padding: 22px 40px;
+    font-size: 1.25rem;
+    min-height: 68px;
+  }
+  #screen-home button.btn-private-cta {
+    padding: 18px 32px;
+    font-size: 1.1rem;
+    min-height: 58px;
+  }
+  #screen-home .hero .join-row button.secondary {
+    padding: 17px 28px;
+    font-size: 1.05rem;
+  }
+}
+
 /* --- Mobile: stack + scroll --- */
 @media (max-width: 780px) {
   #screen-game.active {
