@@ -239,7 +239,7 @@ body::after {
 }
 .card.center { text-align: center; }
 .hero {
-  max-width: 500px; margin-inline: auto;
+  max-width: 640px; margin-inline: auto;
   text-align: center;
   padding-top: 28px;
 }
