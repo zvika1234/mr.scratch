@@ -1457,11 +1457,11 @@ button.btn-private-cta:active { transform: translateY(0); }
 
 /* ---------- Home screen desktop enlargements ---------- */
 @media (min-width: 768px) {
-  /* Spread children to fill the full card height */
+  /* Balanced breathing room — centred with a consistent gap */
   #screen-home .hero {
-    justify-content: space-evenly;
-    gap: 10px;
-    padding-block: clamp(48px, 8vh, 80px);
+    justify-content: center;
+    gap: 14px;
+    padding-block: clamp(40px, 6vh, 64px);
   }
 
   /* Title */
