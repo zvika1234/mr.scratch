@@ -515,7 +515,7 @@ $('#lobby-category').addEventListener('change', (e) =>
 );
 // (lobby-lang selector removed — game language is now set via the ⚙️ settings panel)
 $('#btn-copy-link').addEventListener('click', () => {
-  const msg = `🕵️ One of us doesn't know the word. Can you figure out who? Join my room 👉 mrscratch.online/${State.roomCode}`;
+  const msg = `🕵️ One of us doesn't know the word. Can you figure out who? Join my room 👉 mrscratch.online/?room=${State.roomCode}`;
   navigator.clipboard.writeText(msg).then(() => toast(t('toast.linkCopied')));
 });
 $('#btn-start').addEventListener('click', () => {
