@@ -1457,15 +1457,35 @@ button.btn-private-cta:active { transform: translateY(0); }
 
 /* ---------- Home screen desktop enlargements ---------- */
 @media (min-width: 768px) {
+  /* Spread children to fill the full card height */
+  #screen-home .hero {
+    justify-content: space-evenly;
+    gap: 10px;
+    padding-block: clamp(48px, 8vh, 80px);
+  }
+
+  /* Title */
   #screen-home .hero h1 {
     font-size: 3.6rem;
+    margin-bottom: 0;
   }
+
+  /* Tagline */
   #screen-home .hero .tagline {
     font-size: 1.2rem;
+    margin-bottom: 0;
   }
+
+  /* Name field label */
   #screen-home .hero .field > span {
     font-size: 1rem;
   }
+  /* Name field — no extra block margin, gap handles it */
+  #screen-home .hero .field {
+    margin-block: 0;
+  }
+
+  /* Inputs taller */
   #screen-home .hero input[type="text"] {
     padding: 17px 20px;
     font-size: 1.05rem;
@@ -1473,16 +1493,32 @@ button.btn-private-cta:active { transform: translateY(0); }
   #screen-home .hero .join-row input {
     font-size: 1.25rem;
   }
+
+  /* Button rows — no extra block margin, gap handles it */
+  #screen-home .hero .row {
+    margin-block: 0;
+  }
+
+  /* Divider — tighter, gap handles separation */
+  #screen-home .hero .divider {
+    margin-block: 0;
+  }
+
+  /* Public Rooms CTA — bigger */
   #screen-home button.btn-public-cta {
     padding: 22px 40px;
     font-size: 1.25rem;
     min-height: 68px;
   }
+
+  /* Create Private CTA — bigger */
   #screen-home button.btn-private-cta {
     padding: 18px 32px;
     font-size: 1.1rem;
     min-height: 58px;
   }
+
+  /* Join button in join-row — taller to match input */
   #screen-home .hero .join-row button.secondary {
     padding: 17px 28px;
     font-size: 1.05rem;
